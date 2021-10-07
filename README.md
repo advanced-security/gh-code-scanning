@@ -25,7 +25,7 @@ gh code-scanning --enable foo/bar
 To bulk-enable Code-Scanning on all Python repositories in the organization "foo":
 
 ```shell
-gh repo list \
+gh repo list foo \
   --json nameWithOwner,languages \
   --jq '.[] | select(.languages.[].node.name == "Python") | .nameWithOwner' \
 | xargs gh code-scanning --enable
