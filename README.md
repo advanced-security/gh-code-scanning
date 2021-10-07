@@ -22,13 +22,7 @@ To enable Code-Scanning on one organization repository, "foo/bar":
 gh code-scanning --enable foo/bar
 ```
 
-To bulk-enable Code-Scanning on all Python repositories (where Python is listed as the first or major language) in the organization "foo":
-
-```shell
-gh repo list --language python | cut -f 1 | xargs gh code-scanning --enable
-```
-
-To bulk-enable Code-Scanning on all Python repositories (where Python is listed as one of the languages) in the organization "foo":
+To bulk-enable Code-Scanning on all Python repositories in the organization "foo":
 
 ```shell
 gh repo list \
