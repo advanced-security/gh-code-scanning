@@ -38,9 +38,7 @@ def main():
             except FileExistsError as e:
                 pass
 
-            gh_install_root = os.path.dirname(__file__)
-            workflow_file_src = os.path.join(gh_install_root, 'codeql-analysis.yml')
-            shutil.copy(workflow_file_src, '.github/workflows/')
+            shutil.copy(os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml'), '.github/workflows')
             
             command = [args.git, 'add', '--all']
             subprocess.run(command)
