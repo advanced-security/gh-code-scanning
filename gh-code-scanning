@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import pathlib
 import shutil
 import subprocess
 import tempfile
@@ -33,8 +32,11 @@ def main():
                 command.append('--quiet')
             subprocess.run(command)
 
-            # Note: `exist_ok` requires Python >= 3.5
-            pathlib.PosixPath('.github/workflows').mkdir(parents=True, exist_ok=True)
+            try:
+                os.mkdir('.github')
+                os.mkdir('.github/workflows')
+            except FileExistsError as e:
+                pass
 
             gh_install_root = os.path.dirname(__file__)
             workflow_file_src = os.path.join(gh_install_root, 'codeql-analysis.yml')
