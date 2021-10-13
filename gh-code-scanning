@@ -10,6 +10,7 @@ def enable(args):
     branch_name = 'gh-code-scanning_{}/setup'.format(os.getpid())
 
     for nwo in args.repos:
+        os.chdir('/')
         with tempfile.TemporaryDirectory('gh_code_scanning') as temp_dir:
             command = [args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1']
             if not args.verbose:
