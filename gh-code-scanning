@@ -46,7 +46,7 @@ def main():
                 command.append('--quiet')
             subprocess.run(command)
             
-            command = [args.git, 'push', '--set-upstream', 'origin']
+            command = [args.git, 'push', '--set-upstream', 'origin', 'enable-codeql']
             if not args.verbose:
                 command.append('--quiet')
             subprocess.run(command)
