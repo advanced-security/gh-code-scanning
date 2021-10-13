@@ -52,6 +52,7 @@ def main():
     parser.add_argument('--gh', metavar='path', default=shutil.which('gh'), help='path to the gh executable.')
     parser.add_argument('--git', metavar='path', default=shutil.which('git'), help='path to the git executable.')
     parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
+    parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
     
     parser_enable = subparsers.add_parser('enable', help='set up Code Scanning with GitHub CodeQL.')
@@ -60,11 +61,7 @@ def main():
     parser_enable.set_defaults(func=enable)
     
     args = parser.parse_args()
-    
-    try:
-        args.func(args)
-    except AttributeError:
-        parser.print_help()
+    args.func(args)
 
 if __name__ == '__main__':
     main()
