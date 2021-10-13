@@ -1,3 +1,52 @@
 #!/usr/bin/env python
 
-print('hello, world')
+import argparse
+import pathlib
+import shutil
+import subprocess
+import tempfile
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-F', '--file', narg=1)
+    parser.add_argument('-f', '--force', action='store_true')
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('--gh', default=shutil.which('gh'))
+    parser.add_argument('--git', default=shutil.which('git'))
+    parser.add_argument('repos', nargs='+')
+    args = parser.parse_args()
+
+    for nwo in args.repos:
+        with tempfile.TemporaryDirectory('gh_code_scanning') as temp_dir:
+            command = [args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1']
+            if not args.verbose:
+                command.append('--quiet')
+            subprocess.run(command)
+            
+            os.chdir(temp_path)
+            
+            command = [args.git, 'checkout', '-b', 'enable-codeql']
+            if not args.verbose:
+                command.append('--quiet')
+            subprocess.run(command)
+
+            # Note: `exist_ok` requires Python >= 3.5
+            pathlib.PosixPath('.github/workflows').mkdir(parents=True, exist_ok=True)
+
+            gh_install_root = os.path.dirname(__file__)
+            workflow_file_src = os.path.join(gh_install_root, 'codeql-analysis.yml')
+            shutil.copy(workflow_file_src, '.github/workflows/')
+            
+            command = [args.git, 'add', '--all']
+            subprocess.run(command)
+            
+            command = [args.git, 'commit', '--message', 'Create .github/workflows/codeql-analysis.yml']
+            if not args.verbose:
+                command.append('--quiet')
+            subprocess.run(command)
+            
+            command = [args.gh, 'pr', 'create', '--fill']
+            subprocess.run(command)
+
+if __name__ == '__main__':
+    main()
