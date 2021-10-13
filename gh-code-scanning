@@ -16,6 +16,8 @@ def main():
     parser.add_argument('--git', default=shutil.which('git'))
     parser.add_argument('repos', nargs='+')
     args = parser.parse_args()
+    
+    branch_name = 'gh-code-scanning_{}/setup'.format(os.getpid())
 
     for nwo in args.repos:
         with tempfile.TemporaryDirectory('gh_code_scanning') as temp_dir:
@@ -26,7 +28,7 @@ def main():
             
             os.chdir(temp_dir)
             
-            command = [args.git, 'checkout', '-b', 'enable-codeql']
+            command = [args.git, 'checkout', '-b', branch_name]
             if not args.verbose:
                 command.append('--quiet')
             subprocess.run(command)
@@ -46,12 +48,12 @@ def main():
                 command.append('--quiet')
             subprocess.run(command)
             
-            command = [args.git, 'push', '--set-upstream', 'origin', 'enable-codeql']
+            command = [args.git, 'push', '--set-upstream', 'origin', branch_name]
             if not args.verbose:
                 command.append('--quiet')
             subprocess.run(command)
             
-            command = [args.gh, 'pr', 'create', '--fill', '--head=enable-codeql']
+            command = [args.gh, 'pr', 'create', '--fill', '--head', branch_name]
             subprocess.run(command)
 
 if __name__ == '__main__':
