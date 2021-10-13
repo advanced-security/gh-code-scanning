@@ -49,19 +49,17 @@ def enable(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gh', default=shutil.which('gh'))
-    parser.add_argument('--git', default=shutil.which('git'))
-    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('--gh', metavar='path', default=shutil.which('gh'), help='Path to the gh executable.')
+    parser.add_argument('--git', metavar='path', default=shutil.which('git'), help='Path to the git executable.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Print diagnostic information.')
     subparsers = parser.add_subparsers()
     
-    parser_enable = subparsers.add_parser('enable', help='Set up Code Scanning with GitHub CodeQL')
-    parser_enable.add_argument('-F', '--file', nargs=1)
-    parser_enable.add_argument('-f', '--force', action='store_true')
+    parser_enable = subparsers.add_parser('enable', help='Set up Code Scanning with GitHub CodeQL.')
+    parser_enable.add_argument('-f', '--force', action='store_true', help='Overwrite existing workflow file.')
     parser_enable.add_argument('repos', nargs='+')
     parser_enable.set_defaults(func=enable)
     
     args = parser.parse_args()
-    print(args)
     args.func(args)
 
 if __name__ == '__main__':
