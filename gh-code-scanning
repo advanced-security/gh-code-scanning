@@ -24,7 +24,7 @@ def main():
                 command.append('--quiet')
             subprocess.run(command)
             
-            os.chdir(temp_path)
+            os.chdir(temp_dir)
             
             command = [args.git, 'checkout', '-b', 'enable-codeql']
             if not args.verbose:
