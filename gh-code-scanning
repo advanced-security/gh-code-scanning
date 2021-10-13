@@ -6,19 +6,10 @@ import shutil
 import subprocess
 import tempfile
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-F', '--file', nargs=1)
-    parser.add_argument('-f', '--force', action='store_true')
-    parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('--gh', default=shutil.which('gh'))
-    parser.add_argument('--git', default=shutil.which('git'))
-    parser.add_argument('repos', nargs='+')
-    args = parser.parse_args()
-    
+def enable(args):
     branch_name = 'gh-code-scanning_{}/setup'.format(os.getpid())
 
-    for nwo in args.repos:
+    for nwo in args.enable.repos:
         with tempfile.TemporaryDirectory('gh_code_scanning') as temp_dir:
             command = [args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1']
             if not args.verbose:
@@ -55,6 +46,22 @@ def main():
             
             command = [args.gh, 'pr', 'create', '--fill', '--head', branch_name]
             subprocess.run(command)
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--gh', default=shutil.which('gh'))
+    parser.add_argument('--git', default=shutil.which('git'))
+    parser.add_argument('-v', '--verbose', action='store_true')
+    subparsers = parser.add_subparsers()
+    
+    parser_enable = subparsers.add_parser('enable', help='Set up Code Scanning with GitHub CodeQL')
+    parser_enable.add_argument('-F', '--file', nargs=1)
+    parser_enable.add_argument('-f', '--force', action='store_true')
+    parser_enable.add_argument('repos', nargs='+')
+    parser_enable.set_defaults(func=enable)
+    
+    args = parser.parse_args()
+    args.func(args)
 
 if __name__ == '__main__':
     main()
