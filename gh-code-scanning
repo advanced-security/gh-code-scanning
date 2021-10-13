@@ -51,8 +51,8 @@ def main():
                 command.append('--quiet')
             subprocess.run(command)
             
-            import time
-            time.sleep(3)
+            print(temp_dir)
+            os.exit(0)
             
             command = [args.gh, 'pr', 'create', '--fill']
             subprocess.run(command)
