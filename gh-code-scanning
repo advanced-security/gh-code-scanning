@@ -54,7 +54,7 @@ def main():
             print(temp_dir)
             os.exit(0)
             
-            command = [args.gh, 'pr', 'create', '--fill']
+            command = [args.gh, 'pr', 'create', '--fill', '--head=enable-codeql']
             subprocess.run(command)
 
 if __name__ == '__main__':
