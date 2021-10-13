@@ -51,9 +51,6 @@ def main():
                 command.append('--quiet')
             subprocess.run(command)
             
-            print(temp_dir)
-            os.exit(0)
-            
             command = [args.gh, 'pr', 'create', '--fill', '--head=enable-codeql']
             subprocess.run(command)
 
