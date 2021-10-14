@@ -9,7 +9,7 @@ import tempfile
 
 def get_parent_exe():
     ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True)
-    return ps.stdout.split()[0]
+    return ps.stdout.decode('UTF-8').split()[0]
 
 def enable(args):
     branch_name = 'gh-code-scanning_{}/setup'.format(os.getpid())
