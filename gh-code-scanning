@@ -7,6 +7,10 @@ import shutil
 import subprocess
 import tempfile
 
+def get_parent_exe():
+    process = subprocess.run(['ps', '-oargs=', '-p', os.getppid()], capture_output=True)
+    return process.stdout.split()[0]
+
 def enable(args):
     branch_name = 'gh-code-scanning_{}/setup'.format(os.getpid())
 
@@ -63,8 +67,10 @@ def alerts(args):
             )
             
 def main():
+    print(get_parent_exe())
+    exit(0)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gh', metavar='path', default=shutil.which('gh'), help='path to the gh executable.')
+    parser.add_argument('--gh', metavar='path', default=get_parent_exe(), help='path to the gh executable.')
     parser.add_argument('--git', metavar='path', default=shutil.which('git'), help='path to the git executable.')
     parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
     parser.set_defaults(func=lambda x: parser.print_help())
