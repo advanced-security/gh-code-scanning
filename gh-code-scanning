@@ -55,7 +55,7 @@ def enable(args):
 
 def alerts(args):
     for nwo in args.repos:
-        command = [args.gh, 'api', 'repos/{}/code-scanning/alerts'.format(nwo)]
+        command = [args.gh, 'api', '--paginate', 'repos/{}/code-scanning/alerts'.format(nwo)]
         gh = subprocess.run(command, capture_output=True)
         for alert in json.loads(gh.stdout):
             print(nwo,
