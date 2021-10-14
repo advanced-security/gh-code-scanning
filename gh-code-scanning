@@ -12,7 +12,7 @@ def get_parent_exe():
     return ps.stdout.decode('UTF-8').split()[0]
 
 def enable(args):
-    branch_name = 'gh-code-scanning_{}/setup'.format(os.getpid())
+    branch_name = 'gh-code-scanning_{}/enable'.format(os.getpid())
 
     for nwo in args.repos:
         os.chdir('/')
