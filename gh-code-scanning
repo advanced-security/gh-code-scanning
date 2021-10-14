@@ -59,7 +59,7 @@ def alerts(args):
                   alert['created_at'],
                   alert['state'],
                   alert['rule']['id'],
-                  alert['location']['path'] + ':' + alert['location']['start_line']
+                  '{}:{}'.format(alert['most_recent_instance']['location']['path'], alert['most_recent_instance']['location']['start_line'])
             )
             
 def main():
