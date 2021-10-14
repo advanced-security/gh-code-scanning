@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 def get_parent_exe():
-    process = subprocess.run(['ps', '-oargs=', '-p', os.getppid()], capture_output=True)
+    process = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True)
     return process.stdout.split()[0]
 
 def enable(args):
