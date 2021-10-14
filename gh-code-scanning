@@ -8,8 +8,8 @@ import subprocess
 import tempfile
 
 def get_parent_exe():
-    process = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True)
-    return process.stdout.split()[0]
+    ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True)
+    return ps.stdout.split()[0]
 
 def enable(args):
     branch_name = 'gh-code-scanning_{}/setup'.format(os.getpid())
@@ -56,8 +56,8 @@ def enable(args):
 def alerts(args):
     for nwo in args.repos:
         command = [args.gh, 'api', 'repos/{}/code-scanning/alerts'.format(nwo)]
-        process = subprocess.run(command, capture_output=True)
-        for alert in json.loads(process.stdout):
+        gh = subprocess.run(command, capture_output=True)
+        for alert in json.loads(gh.stdout):
             print(nwo,
                   format(alert['number'], '>4d'),
                   alert['created_at'],
