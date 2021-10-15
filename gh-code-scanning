@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 def json_multiloads(json_string, spool=[]):
@@ -64,7 +65,13 @@ def enable(args):
 def alerts(args):
     for nwo in args.repos:
         command = [args.gh, 'api', '--paginate', 'repos/{}/code-scanning/alerts'.format(nwo)]
-        gh = subprocess.run(command, capture_output=True)
+        try:
+            gh = subprocess.run(command, capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message = json.loads(e.stdout)['message']
+            print(f'error: {nwo}: {message}', file=sys.stderr)
+            continue
+
         for alert in json_multiloads(gh.stdout):
             print(nwo,
                   format(alert['number'], '>4d'),
