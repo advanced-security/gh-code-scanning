@@ -7,6 +7,14 @@ import shutil
 import subprocess
 import tempfile
 
+def json_multiloads(json_string, spool=[]):
+    try:
+        spool += json.loads(json_string)
+    except json.decoder.JSONDecodeError as e:
+        spool += json.loads(json_string[:e.pos])
+        recursive_decode_json(json_string[e.pos:], spool)
+    return spool
+
 def get_parent_exe():
     ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True)
     return ps.stdout.decode('UTF-8').split()[0]
@@ -57,7 +65,7 @@ def alerts(args):
     for nwo in args.repos:
         command = [args.gh, 'api', '--paginate', 'repos/{}/code-scanning/alerts'.format(nwo)]
         gh = subprocess.run(command, capture_output=True)
-        for alert in json.loads(gh.stdout):
+        for alert in json_multiloads(gh.stdout):
             print(nwo,
                   format(alert['number'], '>4d'),
                   alert['created_at'],
