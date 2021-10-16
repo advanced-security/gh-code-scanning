@@ -8,6 +8,9 @@ import subprocess
 import sys
 import tempfile
 
+# json_multiloads decodes multiple JSON documents that have
+# been concatenated together, as `gh api --paginate` does.
+# See: https://github.com/cli/cli/issues/1268.
 def json_multiloads(json_string, spool=[]):
     try:
         spool += json.loads(json_string)
