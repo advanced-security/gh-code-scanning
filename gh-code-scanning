@@ -20,8 +20,11 @@ def json_multiloads(json_string, spool=[]):
     return spool
 
 def get_parent_exe():
-    ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True)
-    return ps.stdout.decode('UTF-8').split()[0]
+    try:
+        ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True, check=True)
+        return ps.stdout.decode('UTF-8').split()[0]
+    except subprocess.CalledProcessError:
+        return None
 
 def enable(args):
     branch_name = 'gh-code-scanning_{}/enable'.format(os.getpid())
@@ -85,9 +88,19 @@ def alerts(args):
             )
             
 def main():
+    gh_exe = get_parent_exe() or shutil.which('gh')
+    if gh_exe is None:
+        printf('error: cannot find `gh` executable; please specify a path with `--gh`.', file=sys.stderr)
+        exit(1)
+
+    git_exe = shutil.which('git')
+    if git_exe is None:
+        print('error: cannot find `git` executable; please specify a path with `--git`.', file=sys.stderr)
+        exit(1)
+    
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gh', metavar='path', default=get_parent_exe(), help='path to the gh executable.')
-    parser.add_argument('--git', metavar='path', default=shutil.which('git'), help='path to the git executable.')
+    parser.add_argument('--gh', metavar='path', default=gh_exe, help='path to the gh executable.')
+    parser.add_argument('--git', metavar='path', default=git_exe, help='path to the git executable.')
     parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
