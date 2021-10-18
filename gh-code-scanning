@@ -1,65 +1,13 @@
 #!/usr/bin/env python
 
 import argparse
-import json
 import os
-import random
 import shutil
 import string
 import subprocess
 import sys
 import tempfile
-
-def get_default_branch(gh, nwo):
-    cmd = subprocess.run([gh, 'api', f'repos/{nwo}'], capture_output=True)
-    return json.loads(cmd.stdout)['default_branch']
-
-def get_codeql_langs(gh, nwo):
-    """
-    Obtain the programming languages that GitHub detected in the repo nwo.
-    Then, filter the languages down to the CodeQL supported languages, and
-    transform them to the CodeQL language identifiers.
-    """
-    cmd = subprocess.run([gh, 'api', f'repos/{nwo}/languages'], capture_output=True)
-    for lang in json.loads(cmd.stdout):
-        if lang in ['C', 'C++']:
-            yield 'cpp'
-        elif lang == 'Java':
-            yield 'java'
-        elif lang == 'C#':
-            yield 'csharp'
-        elif lang == 'Go':
-            yield 'go'
-        elif lang == 'Python':
-            yield 'python'
-        elif lang in ['JavaScript', 'TypeScript']:
-            yield 'javascript'
-
-def random_weekly_cron_expr():
-    return '{} {} * {} {}'.format(
-        random.randint(0, 59), # minute
-        random.randint(0, 23), # hour
-        random.randint(1, 12), # month
-        random.randint(0, 6)   # day of week
-    )
-
-# json_multiloads decodes multiple JSON documents that have
-# been concatenated together, as `gh api --paginate` does.
-# See: https://github.com/cli/cli/issues/1268.
-def json_multiloads(json_string, spool=[]):
-    try:
-        spool += json.loads(json_string)
-    except json.decoder.JSONDecodeError as e:
-        spool += json.loads(json_string[:e.pos])
-        json_multiloads(json_string[e.pos:], spool)
-    return spool
-
-def get_parent_exe():
-    try:
-        ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True, check=True)
-        return ps.stdout.decode('UTF-8').split()[0]
-    except subprocess.CalledProcessError:
-        return None
+import utils
 
 def enable(args):
     with open(os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml')) as f:
@@ -93,9 +41,9 @@ def enable(args):
                 pass
 
             workflow_contents = workflow_template.safe_substitute(
-                DEFAULT_BRANCH_EXPR=repr([ get_default_branch(args.gh, nwo) ]),
-                SCHEDULE_CRON_EXPR=repr(random_weekly_cron_expr()),
-                MATRIX_LANGUAGE_EXPR=repr(list(get_codeql_langs(args.gh, nwo)))
+                DEFAULT_BRANCH_EXPR=repr([ utils.github.get_repo_default_branch(args.gh, nwo) ]),
+                SCHEDULE_CRON_EXPR=repr(utils.actions.random_weekly_cron_expr()),
+                MATRIX_LANGUAGE_EXPR=repr(list(utils.codeql.get_codeql_langs(args.gh, nwo)))
             )
 
             with open('.github/workflows/codeql-analysis.yml', 'w') as f:
@@ -117,14 +65,12 @@ def enable(args):
 
 def alerts(args):
     for nwo in args.repos:
-        command = [args.gh, 'api', '--paginate', f'repos/{nwo}/code-scanning/alerts']
         try:
-            gh = subprocess.run(command, capture_output=True, check=True)
+            alerts = utils.github.get_repo_cs_alerts(args.gh, nwo)
         except subprocess.CalledProcessError as e:
             print(f'error: {nwo}: {e.stderr}', file=sys.stderr)
             continue
-
-        for alert in json_multiloads(gh.stdout):
+        for alert in alerts:
             print(nwo,
                   format(alert['number'], '>4d'),
                   alert['created_at'],
@@ -134,7 +80,7 @@ def alerts(args):
             )
             
 def main():
-    gh_exe = get_parent_exe() or shutil.which('gh')
+    gh_exe = utils.misc.get_parent_exe() or shutil.which('gh')
     if gh_exe is None:
         printf('error: cannot find `gh` executable; please specify a path with `--gh`.', file=sys.stderr)
         exit(1)
