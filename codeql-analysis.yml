@@ -2,11 +2,11 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ master ]
+    branches: $DEFAULT_BRANCH_EXPR
   pull_request:
-    branches: [ master ]
+    branches: $DEFAULT_BRANCH_EXPR
   schedule:
-    - cron: '34 11 * * 5'
+    - cron: $SCHEDULE_CRON_EXPR
 
 jobs:
   analyze:
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python' ]
+        language: $MATRIX_LANGUAGE_EXPR
 
     steps:
     - name: Checkout repository

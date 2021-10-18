@@ -3,10 +3,45 @@
 import argparse
 import json
 import os
+import random
 import shutil
+import string
 import subprocess
 import sys
 import tempfile
+
+def get_default_branch(gh, nwo):
+    cmd = subprocess.run([gh, 'api', f'repos/{nwo}'], capture_output=True)
+    return json.loads(cmd.stdout)['default_branch']
+
+def get_codeql_langs(gh, nwo):
+    """
+    Obtain the programming languages that GitHub detected in the repo nwo.
+    Then, filter the languages down to the CodeQL supported languages, and
+    transform them to the CodeQL language identifiers.
+    """
+    cmd = subprocess.run([gh, 'api', f'repos/{nwo}/languages'], capture_output=True)
+    for lang in json.loads(cmd.stdout):
+        if lang in ['C', 'C++']:
+            yield 'cpp'
+        elif lang == 'Java':
+            yield 'java'
+        elif lang == 'C#':
+            yield 'csharp'
+        elif lang == 'Go':
+            yield 'go'
+        elif lang == 'Python':
+            yield 'python'
+        elif lang in ['JavaScript', 'TypeScript']:
+            yield 'javascript'
+
+def random_weekly_cron_expr():
+    return '{} {} * {} {}'.format(
+        random.randint(0, 59), # minute
+        random.randint(0, 23), # hour
+        random.randint(1, 12), # month
+        random.randint(0, 6)   # day of week
+    )
 
 # json_multiloads decodes multiple JSON documents that have
 # been concatenated together, as `gh api --paginate` does.
@@ -27,6 +62,9 @@ def get_parent_exe():
         return None
 
 def enable(args):
+    with open(os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml')) as f:
+        workflow_template = string.Template(f.read())
+
     branch_name = 'gh-code-scanning_{}/enable'.format(os.getpid())
 
     for nwo in args.repos:
@@ -38,6 +76,10 @@ def enable(args):
             subprocess.run(command)
             
             os.chdir(temp_dir)
+
+            if os.path.exists('.github/workflows/codeql-analysis.yml') and not args.force:
+                printf('error: ".github/workflows/codeql-analysis.yml" already exists; skipping...', file=sys.stderr)
+                continue
             
             command = [args.git, 'checkout', '-b', branch_name]
             if not args.verbose:
@@ -50,7 +92,14 @@ def enable(args):
             except FileExistsError as e:
                 pass
 
-            shutil.copy(os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml'), '.github/workflows')
+            workflow_contents = workflow_template.safe_substitute(
+                DEFAULT_BRANCH_EXPR=repr([ get_default_branch(args.gh, nwo) ]),
+                SCHEDULE_CRON_EXPR=repr(random_weekly_cron_expr()),
+                MATRIX_LANGUAGE_EXPR=repr(list(get_codeql_langs(args.gh, nwo)))
+            )
+
+            with open('.github/workflows/codeql-analysis.yml', 'w') as f:
+                f.write(workflow_contents)
             
             command = [args.git, 'add', '--all']
             subprocess.run(command)
