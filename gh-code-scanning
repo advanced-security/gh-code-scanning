@@ -123,8 +123,7 @@ def alerts(args):
         try:
             gh = subprocess.run(command, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
-            message = json.loads(e.stdout)['message']
-            print(f'error: {nwo}: {message}', file=sys.stderr)
+            print(f'error: {nwo}: {e.stderr}', file=sys.stderr)
             continue
 
         for alert in json_multiloads(gh.stdout):
