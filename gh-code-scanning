@@ -101,8 +101,7 @@ def enable(args):
             with open('.github/workflows/codeql-analysis.yml', 'w') as f:
                 f.write(workflow_contents)
             
-            command = [args.git, 'add', '--all']
-            subprocess.run(command)
+            subprocess.run([args.git, 'add', '--all'])
             
             command = [args.git, 'commit', '--message', 'Create .github/workflows/codeql-analysis.yml']
             if not args.verbose:
@@ -114,12 +113,11 @@ def enable(args):
                 command.append('--quiet')
             subprocess.run(command)
             
-            command = [args.gh, 'pr', 'create', '--fill', '--head', branch_name]
-            subprocess.run(command)
+            subprocess.run([args.gh, 'pr', 'create', '--fill', '--head', branch_name])
 
 def alerts(args):
     for nwo in args.repos:
-        command = [args.gh, 'api', '--paginate', 'repos/{}/code-scanning/alerts'.format(nwo)]
+        command = [args.gh, 'api', '--paginate', f'repos/{nwo}/code-scanning/alerts']
         try:
             gh = subprocess.run(command, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
