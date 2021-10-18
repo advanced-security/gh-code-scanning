@@ -13,7 +13,7 @@ def enable(args):
     with open(os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml')) as f:
         workflow_template = string.Template(f.read())
 
-    branch_name = 'gh-code-scanning_{}/enable'.format(os.getpid())
+    branch_name = 'mario-campos/gh-code-scanning'
 
     for nwo in args.repos:
         os.chdir('/')
