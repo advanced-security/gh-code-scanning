@@ -8,8 +8,6 @@ def get_repo_default_branch(gh, nwo):
     return json.loads(cmd.stdout)['default_branch']
 
 def get_repo_cs_alerts(gh, nwo):
-    """Obtain a repository's list of Code-Scanning alerts."""
-
     # json_multiloads decodes multiple JSON documents that have
     # been concatenated together, as `gh api --paginate` does.
     # See: https://github.com/cli/cli/issues/1268.
@@ -23,3 +21,7 @@ def get_repo_cs_alerts(gh, nwo):
 
     cmd = subprocess.run([gh, 'api', '--paginate', f'repos/{nwo}/code-scanning/alerts'], capture_output=True, check=True)
     return json_multiloads(cmd.stdout)
+
+def get_repo_langs(gh, nwo):
+    cmd = subprocess.run([gh, 'api', f'repos/{nwo}/languages'], capture_output=True)
+    return json.loads(cmd.stdout)

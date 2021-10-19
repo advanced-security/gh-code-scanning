@@ -3,23 +3,23 @@
 import json
 import subprocess
 
-def get_codeql_langs(gh, nwo):
+languages = {'cpp', 'java', 'csharp', 'go', 'python', 'javascript'}
+
+def normalize_lang(lang):
     """
-    Obtain the programming languages that GitHub detected in the repo nwo.
-    Then, filter the languages down to the CodeQL supported languages, and
-    transform them to the CodeQL language identifiers.
+    CodeQL uses certain keywords to identify a language. These keywords are typically
+    not the language name itself. So, this function maps the programming-language
+    name to the CodeQL language keyword.
     """
-    cmd = subprocess.run([gh, 'api', f'repos/{nwo}/languages'], capture_output=True)
-    for lang in json.loads(cmd.stdout):
-        if lang in ['C', 'C++']:
-            yield 'cpp'
-        elif lang == 'Java':
-            yield 'java'
-        elif lang == 'C#':
-            yield 'csharp'
-        elif lang == 'Go':
-            yield 'go'
-        elif lang == 'Python':
-            yield 'python'
-        elif lang in ['JavaScript', 'TypeScript']:
-            yield 'javascript'
+    if lang in {'C', 'C++'}:
+        return 'cpp'
+    elif lang == 'Java':
+        return 'java'
+    elif lang == 'C#':
+        return 'csharp'
+    elif lang == 'Go':
+        return 'go'
+    elif lang == 'Python':
+        return 'python'
+    elif lang in {'JavaScript', 'TypeScript'}:
+        return 'javascript'
