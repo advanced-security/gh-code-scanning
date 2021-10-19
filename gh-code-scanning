@@ -41,7 +41,7 @@ def enable(args):
                 pass
 
             workflow_contents = workflow_template.safe_substitute(
-                DEFAULT_BRANCH_EXPR=repr([ utils.github.get_repo_default_branch(args.gh, nwo) ]),
+                DEFAULT_BRANCH_EXPR=repr(utils.github.get_repo_default_branch(args.gh, nwo)),
                 SCHEDULE_CRON_EXPR=repr(utils.actions.random_weekly_cron_expr()),
                 MATRIX_LANGUAGE_EXPR=repr(list(utils.codeql.get_codeql_langs(args.gh, nwo)))
             )
