@@ -21,7 +21,7 @@ def enable(args):
 
     for nwo in args.repos:
         os.chdir('/')
-        with tempfile.TemporaryDirectory('gh_code_scanning') as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
             subprocess.run([args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
             
             os.chdir(temp_dir)
