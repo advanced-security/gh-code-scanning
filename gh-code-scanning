@@ -10,16 +10,16 @@ import tempfile
 import utils
 
 def enable(args):
+    output = None if args.verbose else subprocess.DEVNULL
+    branch_name = 'mario-campos/gh-code-scanning'
+
     with open(os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml')) as f:
         workflow_template = string.Template(f.read())
-
-    branch_name = 'mario-campos/gh-code-scanning'
 
     for nwo in args.repos:
         os.chdir('/')
         with tempfile.TemporaryDirectory('gh_code_scanning') as temp_dir:
-            subprocess.run([args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1'],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
             
             os.chdir(temp_dir)
 
@@ -32,8 +32,7 @@ def enable(args):
                 print(f'error: CodeQL does not support any of the programming languages in repo "{nwo}".', file=sys.stderr)
                 continue
             
-            subprocess.run([args.git, 'checkout', '-b', branch_name],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
 
             try:
                 os.mkdir('.github')
@@ -50,14 +49,10 @@ def enable(args):
             with open('.github/workflows/codeql-analysis.yml', 'w') as f:
                 f.write(workflow_contents)
             
-            subprocess.run([args.git, 'add', '--all'],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run([args.git, 'commit', '--message', 'Create .github/workflows/codeql-analysis.yml'],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run([args.gh, 'pr', 'create', '--fill', '--head', branch_name],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([args.git, 'add', '--all'], stdout=output, stderr=output)
+            subprocess.run([args.git, 'commit', '--message', 'Create .github/workflows/codeql-analysis.yml'], stdout=output, stderr=output)
+            subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
+            subprocess.run([args.gh, 'pr', 'create', '--fill', '--head', branch_name], stdout=output, stderr=output)
 
 def alerts(args):
     for nwo in args.repos:
