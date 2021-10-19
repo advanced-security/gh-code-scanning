@@ -65,7 +65,7 @@ def alerts(args):
             print(nwo,
                   format(alert['number'], '>4d'),
                   alert['created_at'],
-                  alert['state'],
+                  format(alert['state'], '>9s'),
                   alert['rule']['id'],
                   '{}:{}'.format(alert['most_recent_instance']['location']['path'], alert['most_recent_instance']['location']['start_line'])
             )
