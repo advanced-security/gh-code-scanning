@@ -12,8 +12,11 @@ import utils
 def enable(args):
     output = None if args.verbose else subprocess.DEVNULL
     branch_name = 'mario-campos/gh-code-scanning'
+    workflow_name = 'codeql-analysis.yml'
+    workflow_srcpath = os.path.join(os.path.dirname(__file__), workflow_name)
+    workflow_dstpath = os.path.join('.github/workflows', workflow_name)
 
-    with open(os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml')) as f:
+    with open(workflow_srcpath) as f:
         workflow_template = string.Template(f.read())
 
     for nwo in args.repos:
@@ -23,8 +26,8 @@ def enable(args):
             
             os.chdir(temp_dir)
 
-            if os.path.exists('.github/workflows/codeql-analysis.yml') and not args.force:
-                print(f'error: {nwo}: workflow "codeql-analysis.yml" already exists.', file=sys.stderr)
+            if os.path.exists(workflow_dstpath) and not args.force:
+                print(f'error: {nwo}: workflow "{workflow_name}" already exists.', file=sys.stderr)
                 continue
 
             repo_langs = utils.github.get_repo_langs(args.gh, nwo)
@@ -46,11 +49,11 @@ def enable(args):
                 MATRIX_LANGUAGE_EXPR=repr(list(map(utils.codeql.normalize_lang, utils.codeql.languages.intersection(repo_langs))))
             )
 
-            with open('.github/workflows/codeql-analysis.yml', 'w') as f:
+            with open(workflow_dstpath, 'w') as f:
                 f.write(workflow_contents)
             
             subprocess.run([args.git, 'add', '--all'], stdout=output, stderr=output)
-            subprocess.run([args.git, 'commit', '--message', 'Create .github/workflows/codeql-analysis.yml'], stdout=output, stderr=output)
+            subprocess.run([args.git, 'commit', '--message', f'Create {workflow_dstpath}'], stdout=output, stderr=output)
             if args.git_push:
                 subprocess.run([args.git, 'checkout', utils.github.get_repo_default_branch(args.gh, nwo)], stdout=output, stderr=output)
                 subprocess.run([args.git, 'merge', branch_name], stdout=output, stderr=output)
