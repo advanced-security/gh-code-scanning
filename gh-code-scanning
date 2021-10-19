@@ -26,7 +26,7 @@ def enable(args):
             os.chdir(temp_dir)
 
             if os.path.exists('.github/workflows/codeql-analysis.yml') and not args.force:
-                printf('error: ".github/workflows/codeql-analysis.yml" already exists; skipping...', file=sys.stderr)
+                print('error: ".github/workflows/codeql-analysis.yml" already exists; skipping...', file=sys.stderr)
                 continue
             
             command = [args.git, 'checkout', '-b', branch_name]
