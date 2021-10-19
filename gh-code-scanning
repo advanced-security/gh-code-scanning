@@ -59,7 +59,8 @@ def alerts(args):
         try:
             alerts = utils.github.get_repo_cs_alerts(args.gh, nwo)
         except subprocess.CalledProcessError as e:
-            print(f'error: {nwo}: {e.stderr}', file=sys.stderr)
+            message = e.stderr.decode('UTF-8').strip()
+            print(f'error: {nwo}: {message}', file=sys.stderr)
             continue
         for alert in alerts:
             print(nwo,
