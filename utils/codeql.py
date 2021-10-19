@@ -3,7 +3,7 @@
 import json
 import subprocess
 
-languages = {'cpp', 'java', 'csharp', 'go', 'python', 'javascript'}
+languages = {'C', 'C++', 'Java', 'C#', 'Go', 'Python', 'Javascript', 'TypeScript'}
 
 def normalize_lang(lang):
     """
