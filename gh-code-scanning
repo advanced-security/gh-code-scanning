@@ -24,12 +24,12 @@ def enable(args):
             os.chdir(temp_dir)
 
             if os.path.exists('.github/workflows/codeql-analysis.yml') and not args.force:
-                print('error: ".github/workflows/codeql-analysis.yml" already exists; skipping...', file=sys.stderr)
+                print(f'error: {nwo}: workflow "codeql-analysis.yml" already exists.', file=sys.stderr)
                 continue
 
             repo_langs = utils.github.get_repo_langs(args.gh, nwo)
             if utils.codeql.languages.isdisjoint(repo_langs):
-                print(f'error: CodeQL does not support any of the programming languages in repo "{nwo}".', file=sys.stderr)
+                print(f'error: {nwo}: no supported programming languages.', file=sys.stderr)
                 continue
             
             subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
