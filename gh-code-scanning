@@ -35,7 +35,8 @@ def enable(args):
                 print(f'error: {nwo}: no supported programming languages.', file=sys.stderr)
                 continue
             
-            subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
+            if not args.git_push:
+                subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
 
             try:
                 os.mkdir('.github')
@@ -54,9 +55,8 @@ def enable(args):
             
             subprocess.run([args.git, 'add', '--all'], stdout=output, stderr=output)
             subprocess.run([args.git, 'commit', '--message', f'Create {workflow_dstpath}'], stdout=output, stderr=output)
+
             if args.git_push:
-                subprocess.run([args.git, 'checkout', utils.github.get_repo_default_branch(args.gh, nwo)], stdout=output, stderr=output)
-                subprocess.run([args.git, 'merge', branch_name], stdout=output, stderr=output)
                 subprocess.run([args.git, 'push', 'origin', utils.github.get_repo_default_branch(args.gh, nwo)], stdout=output, stderr=output)
             else:
                 subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
