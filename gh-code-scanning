@@ -78,7 +78,7 @@ def alerts(args):
 def main():
     gh_exe = utils.misc.get_parent_exe() or shutil.which('gh')
     if gh_exe is None:
-        printf('error: cannot find `gh` executable; please specify a path with `--gh`.', file=sys.stderr)
+        print('error: cannot find `gh` executable; please specify a path with `--gh`.', file=sys.stderr)
         exit(1)
 
     git_exe = shutil.which('git')
