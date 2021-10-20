@@ -79,7 +79,7 @@ def alerts(args):
                   alert['created_at'],
                   format(alert['state'], '>9s'),
                   alert['rule']['id'],
-                  '{}:{}'.format(alert['most_recent_instance']['location']['path'], alert['most_recent_instance']['location']['start_line'])
+                  f"{alert['most_recent_instance']['location']['path']}:{alert['most_recent_instance']['location']['start_line']}"
             )
             
 def main():
