@@ -13,8 +13,9 @@ def enable(args):
     output = None if args.verbose else subprocess.DEVNULL
     branch_name = 'mario-campos/gh-code-scanning'
     workflow_name = 'codeql-analysis.yml'
+    workflow_dstdir = '.github/workflows'
     workflow_srcpath = os.path.join(os.path.dirname(__file__), workflow_name)
-    workflow_dstpath = os.path.join('.github/workflows', workflow_name)
+    workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
 
     with open(workflow_srcpath) as f:
         workflow_template = string.Template(f.read())
@@ -38,18 +39,13 @@ def enable(args):
             if not args.git_push:
                 subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
 
-            try:
-                os.mkdir('.github')
-                os.mkdir('.github/workflows')
-            except FileExistsError as e:
-                pass
-
             workflow_contents = workflow_template.safe_substitute(
                 DEFAULT_BRANCH_EXPR=repr(utils.github.get_repo_default_branch(args.gh, nwo)),
                 SCHEDULE_CRON_EXPR=repr(utils.actions.random_weekly_cron_expr()),
                 MATRIX_LANGUAGE_EXPR=repr(list(map(utils.codeql.normalize_lang, utils.codeql.languages.intersection(repo_langs))))
             )
 
+            os.makedirs(workflow_dstdir, exist_ok=True)
             with open(workflow_dstpath, 'w') as f:
                 f.write(workflow_contents)
             
