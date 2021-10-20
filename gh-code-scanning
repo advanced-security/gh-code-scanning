@@ -78,13 +78,11 @@ def alerts(args):
 def main():
     gh_exe = utils.misc.get_parent_exe() or shutil.which('gh')
     if gh_exe is None:
-        print('error: cannot find `gh` executable; please specify a path with `--gh`.', file=sys.stderr)
-        exit(1)
+        sys.exit('error: cannot find `gh` executable; please specify a path with `--gh`.')
 
     git_exe = shutil.which('git')
     if git_exe is None:
-        print('error: cannot find `git` executable; please specify a path with `--git`.', file=sys.stderr)
-        exit(1)
+        sys.exit('error: cannot find `git` executable; please specify a path with `--git`.')
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--gh', metavar='path', default=gh_exe, help='path to the gh executable.')
