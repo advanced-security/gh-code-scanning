@@ -82,7 +82,7 @@ def alerts(args):
                   f"{alert['most_recent_instance']['location']['path']}:{alert['most_recent_instance']['location']['start_line']}"
             )
             
-def main():
+def main(argv):
     """
     `main()` parses the command-line arguments and dispatches to the appropriate function.
     """
@@ -111,8 +111,8 @@ def main():
     parser_alerts.add_argument('repos', nargs='+')
     parser_alerts.set_defaults(func=alerts)
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.func(args)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
