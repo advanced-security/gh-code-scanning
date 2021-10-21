@@ -94,7 +94,7 @@ def main(argv):
     if git_exe is None:
         sys.exit('error: cannot find `git` executable; please specify a path with `--git`.')
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(argv[0])
     parser.add_argument('--gh', metavar='path', default=gh_exe, help='path to the gh executable.')
     parser.add_argument('--git', metavar='path', default=git_exe, help='path to the git executable.')
     parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
@@ -111,7 +111,7 @@ def main(argv):
     parser_alerts.add_argument('repos', nargs='+')
     parser_alerts.set_defaults(func=alerts)
     
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv[1:])
     args.func(args)
 
 if __name__ == '__main__':
