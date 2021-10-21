@@ -20,7 +20,7 @@ gh code-scanning enable mario-campos/gh-code-scanning
 Enable all repositories in the organization _foo_:
 
 ```shell
-gh repo list foo | cut -f 1 | xargs gh code-scanning enable
+gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-scanning enable
 ```
 
 Enable all Python repositories in the organization _foo_:
@@ -43,5 +43,5 @@ gh code-scanning alerts mario-campos/gh-code-scanning
 List the alerts of all repositories in the organization _foo_:
 
 ```shell
-gh repo list foo | cut -f 1 | xargs gh code-scanning alerts
+gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-scanning alerts
 ```
