@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-"""A GitHub CLI extension for interacting with GitHub Code-Scanning."""
 
 import argparse
 import json
@@ -12,9 +11,6 @@ import sys
 import tempfile
 
 def enable(args):
-    """
-    `enable()` sets up CodeQL for a repository by adding a GitHub-Actions workflow to that repository.
-    """
     def normalize_lang(lang):
         """
         CodeQL uses certain keywords to identify a language. These keywords are typically
@@ -35,12 +31,10 @@ def enable(args):
             return 'javascript'
 
     def get_repo_default_branch(gh, nwo):
-        """Use the GitHub API to get a repo's default branch."""
         cmd = subprocess.run([gh, 'api', f'repos/{nwo}'], capture_output=True)
         return json.loads(cmd.stdout)['default_branch']
 
     def get_repo_langs(gh, nwo):
-        """Use the GitHub API to get the programming languages in a repo."""
         cmd = subprocess.run([gh, 'api', f'repos/{nwo}/languages'], capture_output=True)
         return json.loads(cmd.stdout)
 
@@ -103,9 +97,6 @@ def enable(args):
                 subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', nwo, '--head', branch_name], stdout=output, stderr=output)
 
 def alerts(args):
-    """
-    `alerts()` prints the Code-Scanning alerts of a GitHub repository to STDOUT.
-    """
     def json_multiloads(json_string, spool=[]):
         """
         json_multiloads decodes multiple JSON documents that have
@@ -120,7 +111,6 @@ def alerts(args):
         return spool
 
     def get_repo_cs_alerts(gh, nwo):
-        """Use the GitHub API to get a repo's Code-Scanning alerts."""
         cmd = subprocess.run([gh, 'api', '--paginate', f'repos/{nwo}/code-scanning/alerts'], capture_output=True, check=True)
         return json_multiloads(cmd.stdout)
 
@@ -141,14 +131,9 @@ def alerts(args):
             )
             
 def main(argv):
-    """
-    `main()` parses the command-line arguments and dispatches to the appropriate function.
-    """
     def get_parent_exe():
         """
-        If gh-code-scanning was executed with `gh` using an absolute file path, this
-        function attempts to obtain that path so we can use that same `gh` executable
-        for future API calls, etc.
+        Get the parent process' argv[0], which is the name, and path if referenced using an absolute path, of the executable.
         """
         try:
             ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True, check=True)
