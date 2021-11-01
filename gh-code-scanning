@@ -92,7 +92,7 @@ def enable(args):
                 f.write(workflow_contents)
             
             subprocess.run([args.git, 'add', '--all'], stdout=output, stderr=output)
-            subprocess.run([args.git, 'commit', '--message', f'Create {workflow_dstpath}'], stdout=output, stderr=output)
+            subprocess.run([args.git, 'commit', '--message', args.message], stdout=output, stderr=output)
 
             if args.git_push:
                 subprocess.run([args.git, 'push', 'origin', get_repo_default_branch(args.gh, nwo)], stdout=output, stderr=output)
@@ -164,6 +164,7 @@ def main():
     parser_enable = subparsers.add_parser('enable', help='set up Code Scanning with GitHub CodeQL.')
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
+    parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
     parser_enable.add_argument('repos', nargs='+')
     parser_enable.set_defaults(func=enable)
     
