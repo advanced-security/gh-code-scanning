@@ -29,8 +29,10 @@ def enable(args):
             return 'python'
         elif lang in {'JavaScript', 'TypeScript'}:
             return 'javascript'
-        elif lang == 'Ruby'
+        elif lang == 'Ruby':
             return 'ruby'
+        else:
+            return None
 
     def get_repo_default_branch(gh, nwo):
         cmd = subprocess.run([gh, 'api', f'repos/{nwo}'], capture_output=True)
@@ -55,13 +57,18 @@ def enable(args):
     workflow_dstdir = '.github/workflows'
     workflow_srcpath = os.path.join(os.path.dirname(__file__), workflow_name)
     workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
-    codeql_languages = {'C', 'C++', 'Java', 'C#', 'Go', 'Python', 'Javascript', 'TypeScript', 'Ruby'}
 
     with open(workflow_srcpath) as f:
         workflow_template = string.Template(f.read())
 
     for nwo in args.repos:
         os.chdir('/')
+
+        repo_langs = { normalize_lang(x) for x in get_repo_langs(args.gh, nwo) if normalize_lang(x) is not None }
+        if len(repo_langs) == 0:
+            print(f'error: {nwo}: no supported programming languages.', file=sys.stderr)
+            continue
+
         with tempfile.TemporaryDirectory() as temp_dir:
             subprocess.run([args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
             
@@ -70,11 +77,6 @@ def enable(args):
             if os.path.exists(workflow_dstpath) and not args.force:
                 print(f'error: {nwo}: workflow "{workflow_name}" already exists.', file=sys.stderr)
                 continue
-
-            repo_langs = get_repo_langs(args.gh, nwo)
-            if codeql_languages.isdisjoint(repo_langs):
-                print(f'error: {nwo}: no supported programming languages.', file=sys.stderr)
-                continue
             
             if not args.git_push:
                 subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
@@ -82,7 +84,7 @@ def enable(args):
             workflow_contents = workflow_template.safe_substitute(
                 DEFAULT_BRANCH_EXPR=repr(get_repo_default_branch(args.gh, nwo)),
                 SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
-                MATRIX_LANGUAGE_EXPR=repr(list(map(normalize_lang, codeql_languages.intersection(repo_langs))))
+                MATRIX_LANGUAGE_EXPR=repr(list(repo_langs))
             )
 
             os.makedirs(workflow_dstdir, exist_ok=True)
