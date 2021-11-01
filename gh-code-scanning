@@ -29,6 +29,8 @@ def enable(args):
             return 'python'
         elif lang in {'JavaScript', 'TypeScript'}:
             return 'javascript'
+        elif lang == 'Ruby'
+            return 'ruby'
 
     def get_repo_default_branch(gh, nwo):
         cmd = subprocess.run([gh, 'api', f'repos/{nwo}'], capture_output=True)
@@ -53,7 +55,7 @@ def enable(args):
     workflow_dstdir = '.github/workflows'
     workflow_srcpath = os.path.join(os.path.dirname(__file__), workflow_name)
     workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
-    codeql_languages = {'C', 'C++', 'Java', 'C#', 'Go', 'Python', 'Javascript', 'TypeScript'}
+    codeql_languages = {'C', 'C++', 'Java', 'C#', 'Go', 'Python', 'Javascript', 'TypeScript', 'Ruby'}
 
     with open(workflow_srcpath) as f:
         workflow_template = string.Template(f.read())
