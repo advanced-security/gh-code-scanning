@@ -23,12 +23,16 @@ Enable all repositories in the organization _foo_:
 gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-scanning enable
 ```
 
-Enable all Python repositories in the organization _foo_:
+Enable all repositories that have CodeQL "interpreted" languages (`javascript`, `python`, `go`, `ruby`) and none of the CodeQL "compiled" languages (`java`, `csharp`, `cpp`):
 
 ```shell
 gh repo list foo \
   --json nameWithOwner,languages \
-  --jq '.[] | select(.languages.[].node.name == "Python") | .nameWithOwner' \
+  --jq '
+  .[] | (.languages) = [.languages[].node.name] |
+  select(.languages | all(. != "Java" and . != "C#" and . != "C" and . != "C++")) |
+  select(.languages | any(. == "JavaScript" or . == "TypeScript" or . == "Python" or . == "Go" or . == "Ruby")) |
+  .nameWithOwner' \
 | xargs gh code-scanning enable
 ```
 
