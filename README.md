@@ -49,3 +49,11 @@ List the alerts of all repositories in the organization _foo_:
 ```shell
 gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-scanning alerts
 ```
+
+#### List Code-Scanning Analyses
+
+List the analyses of a single repository:
+
+```shell
+gh code-scanning analyses mario-campos/gh-code-scanning
+```
