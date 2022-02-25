@@ -36,7 +36,7 @@ gh repo list foo \
 | xargs gh code-scanning enable
 ```
 
-#### List Code-Scanning Alerts
+#### List Code-Scanning alerts
 
 List the alerts of a single repository:
 
@@ -50,10 +50,18 @@ List the alerts of all repositories in the organization _foo_:
 gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-scanning alerts
 ```
 
-#### List Code-Scanning Analyses
+#### List Code-Scanning analyses
 
-List the analyses of a single repository:
+List the analyses of a repository:
 
 ```shell
 gh code-scanning analyses mario-campos/gh-code-scanning
+```
+
+Delete all analyses of a repository:
+
+#### Delete Code-Scanning analyses (and alerts)
+
+```shell
+gh code-scanning analyses -d mario-campos/gh-code-scanning
 ```
