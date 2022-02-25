@@ -152,23 +152,54 @@ def analyses(args):
         cmd = subprocess.run([gh, 'api', '--paginate', f'/repos/{nwo}/code-scanning/analyses'], capture_output=True, check=True)
         return json_multiloads(cmd.stdout)
 
-    for nwo in args.repos:
-        try:
-            analyses = get_repo_cs_analyses(args.gh, nwo)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('UTF-8').strip()
-            print(f'error: {nwo}: {message}', file=sys.stderr)
-            continue
-        for analysis in analyses:
-            print(nwo,
-                  format(analysis['id'], '>9d'),
-                  analysis['created_at'],
-                  analysis['analysis_key'],
-                  format(analysis['rules_count'], '>3d'),
-                  format(analysis['results_count'], '4d'),
-                  'Y' if analysis['deletable'] else 'N',
-                  analysis['sarif_id'],
-            )
+    def delete_repo_cs_analysis(gh, nwo, analysis_id):
+        """
+        Delete the Code Scanning analysis of the given `analysis_id` in the repository `nwo`.
+        This function returns the ID of the "next analysis."
+        """
+        cmd = subprocess.run([gh, 'api', '--method', 'DELETE', f'/repos/{nwo}/code-scanning/analyses/{analysis_id}?confirm_delete=true'], capture_output=True, check=True)
+        next_analysis = json.loads(cmd.stdout)
+
+        if next_analysis['next_analysis_url'] is None and next_analysis['confirm_delete_url'] is None:
+            return None
+
+        # The GitHub API emits the URL of the next analysis that is deletable. Unfortunately, one cannot
+        # simply pass the URL to `gh api`, so we must parse the URL for next analysis ID.
+        return int(next_analysis['next_analysis_url'].split('/')[-1])
+
+    try:
+        analyses = get_repo_cs_analyses(args.gh, args.repo)
+    except subprocess.CalledProcessError as e:
+        message = e.stderr.decode('UTF-8').strip()
+        print(f'error: {args.repo}: {message}', file=sys.stderr)
+        sys.exit(1)
+
+    if args.delete:
+        deletables = [ analysis['id'] for analysis in analyses if analysis['deletable'] ]
+
+        while True:
+            try:
+                this_id = deletables.pop()
+            except IndexError:
+                return # done -- all analyses have been deleted!
+
+            next_id = delete_repo_cs_analysis(args.gh, args.repo, this_id)
+            if next_id is not None:
+                deletables.append(next_id)
+
+            print(this_id)
+
+    # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
+    for analysis in analyses:
+        print(args.repo,
+              format(analysis['id'], '>9d'),
+              analysis['created_at'],
+              analysis['analysis_key'],
+              format(analysis['rules_count'], '>3d'),
+              format(analysis['results_count'], '4d'),
+              'Y' if analysis['deletable'] else 'N',
+              analysis['sarif_id'],
+        )
 
 def main():
     def get_parent_exe():
@@ -209,7 +240,8 @@ def main():
     parser_alerts.set_defaults(func=alerts)
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
-    parser_analyses.add_argument('repos', nargs='+')
+    parser_analyses.add_argument('-d', dest='delete', action='store_true')
+    parser_analyses.add_argument('repo')
     parser_analyses.set_defaults(func=analyses)
     
     args = parser.parse_args()
