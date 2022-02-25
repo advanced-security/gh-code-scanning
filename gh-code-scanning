@@ -10,6 +10,58 @@ import subprocess
 import sys
 import tempfile
 
+class CodeScanningAnalysis:
+    def __init__(self, owner, repo, id, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
+                 created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
+        self.owner         = owner
+        self.repo          = repo
+        self.id            = id
+        self.ref           = ref
+        self.commit_sha    = commit_sha
+        self.analysis_key  = analysis_key
+        self.environment   = environment
+        self.category      = category
+        self.created_at    = created_at
+        self.results_count = results_count
+        self.rules_count   = rules_count
+        self.sarif_id      = sarif_id
+        self.deletable     = deletable
+
+    @classmethod
+    def from_api(cls, owner, repo, obj):
+        return cls(owner, repo,
+            id=obj['id'],
+            ref=obj['ref'],
+            commit_sha=obj['commit_sha'],
+            analysis_key=obj['analysis_key'],
+            environment=obj['environment'],
+            category=obj['category'],
+            created_at=obj['created_at'],
+            results_count=obj['results_count'],
+            rules_count=obj['rules_count'],
+            sarif_id=obj['sarif_id'],
+            deletable=obj['deletable'],
+        )
+
+    def is_deletable(self):
+        return self.deletable
+
+    def delete(self, gh):
+        """
+        Delete this Code Scanning analysis from the repository. This function returns a CodeScanningAnalysis
+        object of the next analysis that can be deletd, if one exists.
+        """
+
+        # FIXME: wrap this in a try/except block to catch spontaneous failures.
+        cmd = subprocess.run([gh, 'api', '--method', 'DELETE', f'/repos/{self.owner}/{self.repo}/code-scanning/analyses/{self.id}?confirm_delete=true'], capture_output=True, check=True)
+
+        next_analysis = json.loads(cmd.stdout)
+        if next_analysis['next_analysis_url'] is None and next_analysis['confirm_delete_url'] is None:
+            return None
+
+        next_analysis_id = int(next_analysis['next_analysis_url'].split('/')[-1])
+        return self.__class__(self.owner, self.repo, next_analysis_id, deletable=True)
+
 def enable(args):
     def normalize_lang(lang):
         """
@@ -148,57 +200,53 @@ def analyses(args):
             json_multiloads(json_string[e.pos:], spool)
         return spool
 
-    def get_repo_cs_analyses(gh, nwo):
-        cmd = subprocess.run([gh, 'api', '--paginate', f'/repos/{nwo}/code-scanning/analyses'], capture_output=True, check=True)
-        return json_multiloads(cmd.stdout)
+    def get_repo_cs_analyses(gh, owner, repo):
+        try:
+            cmd = subprocess.run([gh, 'api', '--paginate', f'/repos/{owner}/{repo}/code-scanning/analyses'], capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message = e.stderr.decode('utf-8').strip()
+            print(message, file=sys.stderr)
+            sys.exit(1)
 
-    def delete_repo_cs_analysis(gh, nwo, analysis_id):
-        """
-        Delete the Code Scanning analysis of the given `analysis_id` in the repository `nwo`.
-        This function returns the ID of the "next analysis."
-        """
-        cmd = subprocess.run([gh, 'api', '--method', 'DELETE', f'/repos/{nwo}/code-scanning/analyses/{analysis_id}?confirm_delete=true'], capture_output=True, check=True)
-        next_analysis = json.loads(cmd.stdout)
+        for analysis_object in json_multiloads(cmd.stdout):
+            yield CodeScanningAnalysis.from_api(owner, repo, analysis_object)
 
-        if next_analysis['next_analysis_url'] is None and next_analysis['confirm_delete_url'] is None:
-            return None
-
-        # The GitHub API emits the URL of the next analysis that is deletable. Unfortunately, one cannot
-        # simply pass the URL to `gh api`, so we must parse the URL for next analysis ID.
-        return int(next_analysis['next_analysis_url'].split('/')[-1])
+    # FIXME: validate that args.repo matches the name-with-owner syntax,
+    # because if it doesn't, Python will likely choke.
+    owner, repo = tuple(args.repo.split('/'))
 
     try:
-        analyses = get_repo_cs_analyses(args.gh, args.repo)
+        analyses = get_repo_cs_analyses(args.gh, owner, repo)
     except subprocess.CalledProcessError as e:
         message = e.stderr.decode('UTF-8').strip()
         print(f'error: {args.repo}: {message}', file=sys.stderr)
         sys.exit(1)
 
     if args.delete:
-        deletables = [ analysis['id'] for analysis in analyses if analysis['deletable'] ]
+        deletables = [ analysis for analysis in analyses if analysis.is_deletable() ]
 
         while True:
             try:
-                this_id = deletables.pop()
+                this_analysis = deletables.pop()
             except IndexError:
                 return # done -- all analyses have been deleted!
 
-            next_id = delete_repo_cs_analysis(args.gh, args.repo, this_id)
-            if next_id is not None:
-                deletables.append(next_id)
+            next_analysis = this_analysis.delete(args.gh)
+            if next_analysis is not None:
+                deletables.append(next_analysis)
 
-            print(this_id)
+            print(this_analysis.id)
 
     # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
     for analysis in analyses:
         print(args.repo,
-              format(analysis['id'], '>9d'),
-              analysis['created_at'],
-              analysis['analysis_key'],
-              format(analysis['rules_count'], '>3d'),
-              format(analysis['results_count'], '4d'),
-              'Y' if analysis['deletable'] else 'N',
-              analysis['sarif_id'],
+              format(analysis.id, '>9d'),
+              analysis.created_at,
+              analysis.analysis_key,
+              format(analysis.rules_count, '>3d'),
+              format(analysis.results_count, '4d'),
+              'Y' if analysis.is_deletable() else 'N',
+              analysis.sarif_id,
         )
 
 def main():
