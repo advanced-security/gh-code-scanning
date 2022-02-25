@@ -10,6 +10,18 @@ import subprocess
 import sys
 import tempfile
 
+def json_multiloads(json_string, spool=[]):
+    """
+    json_multiloads decodes multiple JSON documents that have been concatenated together, as `gh api --paginate` does.
+    See: https://github.com/cli/cli/issues/1268.
+    """
+    try:
+        spool += json.loads(json_string)
+    except json.decoder.JSONDecodeError as e:
+        spool += json.loads(json_string[:e.pos])
+        json_multiloads(json_string[e.pos:], spool)
+    return spool
+
 class CodeScanningAnalysis:
     def __init__(self, owner, repo, id, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
@@ -153,19 +165,6 @@ def enable(args):
                 subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', nwo, '--head', branch_name], stdout=output, stderr=output)
 
 def alerts(args):
-    def json_multiloads(json_string, spool=[]):
-        """
-        json_multiloads decodes multiple JSON documents that have
-        been concatenated together, as `gh api --paginate` does.
-        See: https://github.com/cli/cli/issues/1268.
-        """
-        try:
-            spool += json.loads(json_string)
-        except json.decoder.JSONDecodeError as e:
-            spool += json.loads(json_string[:e.pos])
-            json_multiloads(json_string[e.pos:], spool)
-        return spool
-
     def get_repo_cs_alerts(gh, nwo):
         cmd = subprocess.run([gh, 'api', '--paginate', f'repos/{nwo}/code-scanning/alerts'], capture_output=True, check=True)
         return json_multiloads(cmd.stdout)
@@ -187,19 +186,6 @@ def alerts(args):
             )
 
 def analyses(args):
-    def json_multiloads(json_string, spool=[]):
-        """
-        json_multiloads decodes multiple JSON documents that have
-        been concatenated together, as `gh api --paginate` does.
-        See: https://github.com/cli/cli/issues/1268.
-        """
-        try:
-            spool += json.loads(json_string)
-        except json.decoder.JSONDecodeError as e:
-            spool += json.loads(json_string[:e.pos])
-            json_multiloads(json_string[e.pos:], spool)
-        return spool
-
     def get_repo_cs_analyses(gh, owner, repo):
         try:
             cmd = subprocess.run([gh, 'api', '--paginate', f'/repos/{owner}/{repo}/code-scanning/analyses'], capture_output=True, check=True)
