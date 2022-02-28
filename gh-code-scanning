@@ -118,7 +118,7 @@ class CodeScanningAnalysis(object):
         self.deletable     = deletable
 
     @classmethod
-    def from_api(cls, gh_exe, repository, obj):
+    def from_api(cls, repository, obj, gh_exe):
         return cls(
             repository,
             obj['id'],
