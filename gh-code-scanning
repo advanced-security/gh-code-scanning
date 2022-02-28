@@ -22,7 +22,7 @@ def json_multiloads(json_string, spool=[]):
         json_multiloads(json_string[e.pos:], spool)
     return spool
 
-class CodeScanningAnalysis:
+class CodeScanningAnalysis(object):
     def __init__(self, owner, repo, id, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
         self.owner         = owner
