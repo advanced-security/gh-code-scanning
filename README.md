@@ -65,8 +65,6 @@ List the analyses of a repository:
 gh code-scanning analyses mario-campos/gh-code-scanning
 ```
 
-Delete all analyses of a repository:
-
 #### Delete Code-Scanning analyses (and alerts)
 
 ```shell
