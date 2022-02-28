@@ -268,17 +268,17 @@ def do_alerts(args):
 
 def do_analyses(args):
     if args.delete:
-        deletables = [ analysis for analysis in args.repo.analyses() if analysis.is_deletable() ]
+        delete_queue = [ analysis for analysis in args.repo.analyses() if analysis.is_deletable() ]
 
         while True:
             try:
-                this_analysis = deletables.pop()
+                this_analysis = delete_queue.pop()
             except IndexError:
                 return # done -- all analyses have been deleted!
 
             next_analysis = this_analysis.delete()
             if next_analysis is not None:
-                deletables.append(next_analysis)
+                delete_queue.append(next_analysis)
 
             print(this_analysis.id)
 
