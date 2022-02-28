@@ -65,7 +65,7 @@ class CodeScanningAnalysis:
         """
 
         # FIXME: wrap this in a try/except block to catch spontaneous failures.
-        cmd = subprocess.run([gh, 'api', '--method', 'DELETE', f'/repos/{self.owner}/{self.repo}/code-scanning/analyses/{self.id}?confirm_delete=true'], capture_output=True, check=True)
+        cmd = subprocess.run([gh, 'api', '--method', 'DELETE', '/repos/%s/%s/code-scanning/analyses/%d?confirm_delete=true' % (self.owner, self.repo, self.id)], capture_output=True, check=True)
 
         next_analysis = json.loads(cmd.stdout)
         if next_analysis['next_analysis_url'] is None and next_analysis['confirm_delete_url'] is None:
@@ -99,11 +99,11 @@ def enable(args):
             return None
 
     def get_repo_default_branch(gh, nwo):
-        cmd = subprocess.run([gh, 'api', f'repos/{nwo}'], capture_output=True)
+        cmd = subprocess.run([gh, 'api', os.path.join('repos', nwo)], capture_output=True)
         return json.loads(cmd.stdout)['default_branch']
 
     def get_repo_langs(gh, nwo):
-        cmd = subprocess.run([gh, 'api', f'repos/{nwo}/languages'], capture_output=True)
+        cmd = subprocess.run([gh, 'api', os.path.join('repos', nwo, 'languages')], capture_output=True)
         return json.loads(cmd.stdout)
 
     def generate_random_weekly_cron():
@@ -130,7 +130,7 @@ def enable(args):
 
         repo_langs = { normalize_lang(x) for x in get_repo_langs(args.gh, nwo) if normalize_lang(x) is not None }
         if len(repo_langs) == 0:
-            print(f'error: {nwo}: no supported programming languages.', file=sys.stderr)
+            print('error: %s: no supported programming languages.' % nwo, file=sys.stderr)
             continue
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -139,7 +139,7 @@ def enable(args):
             os.chdir(temp_dir)
 
             if os.path.exists(workflow_dstpath) and not args.force:
-                print(f'error: {nwo}: workflow "{workflow_name}" already exists.', file=sys.stderr)
+                print('error: %s: workflow "%s" already exists.' % (nwo, workflow_name), file=sys.stderr)
                 continue
             
             if not args.git_push:
@@ -166,7 +166,7 @@ def enable(args):
 
 def alerts(args):
     def get_repo_cs_alerts(gh, nwo):
-        cmd = subprocess.run([gh, 'api', '--paginate', f'repos/{nwo}/code-scanning/alerts'], capture_output=True, check=True)
+        cmd = subprocess.run([gh, 'api', '--paginate', os.path.join('repos', nwo, 'code-scanning/alerts')], capture_output=True, check=True)
         return json_multiloads(cmd.stdout)
 
     for nwo in args.repos:
@@ -174,7 +174,7 @@ def alerts(args):
             alerts = get_repo_cs_alerts(args.gh, nwo)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('UTF-8').strip()
-            print(f'error: {nwo}: {message}', file=sys.stderr)
+            print('error: %s: %s' % (nwo, message), file=sys.stderr)
             continue
         for alert in alerts:
             print(nwo,
@@ -182,13 +182,13 @@ def alerts(args):
                   alert['created_at'],
                   format(alert['state'], '>9s'),
                   alert['rule']['id'],
-                  f"{alert['most_recent_instance']['location']['path']}:{alert['most_recent_instance']['location']['start_line']}"
+                  '{}:{}'.format(alert['most_recent_instance']['location']['path'], alert['most_recent_instance']['location']['start_line'])
             )
 
 def analyses(args):
     def get_repo_cs_analyses(gh, owner, repo):
         try:
-            cmd = subprocess.run([gh, 'api', '--paginate', f'/repos/{owner}/{repo}/code-scanning/analyses'], capture_output=True, check=True)
+            cmd = subprocess.run([gh, 'api', '--paginate', os.path.join('repos', owner, repo, 'code-scanning/analyses')], capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('utf-8').strip()
             print(message, file=sys.stderr)
@@ -205,7 +205,7 @@ def analyses(args):
         analyses = get_repo_cs_analyses(args.gh, owner, repo)
     except subprocess.CalledProcessError as e:
         message = e.stderr.decode('UTF-8').strip()
-        print(f'error: {args.repo}: {message}', file=sys.stderr)
+        print('error: %s: %s' % (args.repo, message), file=sys.stderr)
         sys.exit(1)
 
     if args.delete:
