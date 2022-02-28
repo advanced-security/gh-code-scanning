@@ -258,7 +258,7 @@ def do_enable(args):
 
 def do_alerts(args):
     for repo in args.repos:
-       for alert in repo.alerts():
+        for alert in repo.alerts():
             print(repo,
                   format(alert.number, '>4d'),
                   alert.created_at,
