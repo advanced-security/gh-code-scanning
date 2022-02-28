@@ -9,6 +9,7 @@ import string
 import subprocess
 import sys
 import tempfile
+import collections
 
 def json_multiloads(json_string, spool=[]):
     """
@@ -68,7 +69,8 @@ class GithubRepository(object):
             sys.stderr.write(message)
             sys.exit(1)
 
-        return json_multiloads(cmd.stdout)
+        for alert_object in json_multiloads(cmd.stdout):
+            yield CodeScanningAlert(alert_object)
 
 class CodeScanningAnalysis(object):
     def __init__(self, gh_exe, repository, id, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
@@ -133,6 +135,17 @@ class CodeScanningAnalysis(object):
 
         next_analysis_id = int(next_analysis['next_analysis_url'].split('/')[-1])
         return self.__class__(self.gh_exe, self.repository, next_analysis_id, deletable=True)
+
+class CodeScanningAlert(object):
+    def __init__(self, obj):
+        Rule = collections.namedtuple('Rule', ['name', 'id', 'severity', 'tags'])
+        Location = collections.namedtuple('Location', ['path', 'start_line', 'end_line', 'start_column', 'end_column'])
+
+        self.number     = obj['number']
+        self.created_at = obj['created_at']
+        self.state      = obj['state']
+        self.rule       = Rule(obj['rule']['name'], obj['rule']['id'], obj['rule'].get('severity', obj['rule'].get('security_severity_level')), obj['rule']['tags'])
+        self.location   = Location(**obj['most_recent_instance']['location'])
 
 def do_enable(args):
     def normalize_lang(lang):
@@ -228,11 +241,11 @@ def do_alerts(args):
     for repo in args.repos:
        for alert in repo.alerts():
             print(repo,
-                  format(alert['number'], '>4d'),
-                  alert['created_at'],
-                  format(alert['state'], '>9s'),
-                  alert['rule']['id'],
-                  '{}:{}'.format(alert['most_recent_instance']['location']['path'], alert['most_recent_instance']['location']['start_line'])
+                  format(alert.number, '>4d'),
+                  alert.created_at,
+                  format(alert.state, '>9s'),
+                  alert.rule.id,
+                  '{}:{}'.format(alert.location.path, alert.location.start_line),
             )
 
 def do_analyses(args):
