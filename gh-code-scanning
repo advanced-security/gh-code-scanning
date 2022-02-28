@@ -183,20 +183,19 @@ def do_enable(args):
         """
         if lang in {'C', 'C++'}:
             return 'cpp'
-        elif lang == 'Java':
+        if lang == 'Java':
             return 'java'
-        elif lang == 'C#':
+        if lang == 'C#':
             return 'csharp'
-        elif lang == 'Go':
+        if lang == 'Go':
             return 'go'
-        elif lang == 'Python':
+        if lang == 'Python':
             return 'python'
-        elif lang in {'JavaScript', 'TypeScript'}:
+        if lang in {'JavaScript', 'TypeScript'}:
             return 'javascript'
-        elif lang == 'Ruby':
+        if lang == 'Ruby':
             return 'ruby'
-        else:
-            return None
+        return None
 
     def generate_random_weekly_cron():
         return '{} {} {} {} {}'.format(
