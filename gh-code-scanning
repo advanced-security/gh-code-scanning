@@ -126,7 +126,7 @@ class CodeScanningAnalysis(object):
             )
         except subprocess.CalledProcessError:
             sys.stderr.write('warn: %s: cannot delete analysis %d.\n' % (self.repository, self.id))
-            return
+            sys.exit(1)
 
         next_analysis = json.loads(cmd.stdout)
         if next_analysis['next_analysis_url'] is None and next_analysis['confirm_delete_url'] is None:
