@@ -226,7 +226,7 @@ def do_enable(args):
             continue
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            subprocess.run([args.gh, 'repo', 'clone', repo, temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
+            subprocess.run([args.gh, 'repo', 'clone', str(repo), temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
             
             os.chdir(temp_dir)
 
@@ -254,7 +254,7 @@ def do_enable(args):
                 subprocess.run([args.git, 'push', 'origin', repo.default_branch], stdout=output, stderr=output)
             else:
                 subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
-                subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', repo, '--head', branch_name], stdout=output, stderr=output)
+                subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', str(repo), '--head', branch_name], stdout=output, stderr=output)
 
 def do_alerts(args):
     for repo in args.repos:
