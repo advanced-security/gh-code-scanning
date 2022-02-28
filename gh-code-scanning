@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import json
@@ -250,7 +250,7 @@ def do_alerts(args):
 
 def do_analyses(args):
     if args.delete:
-        deletables = [ analysis for analysis in analyses if analysis.is_deletable() ]
+        deletables = [ analysis for analysis in args.repo.analyses() if analysis.is_deletable() ]
 
         while True:
             try:
