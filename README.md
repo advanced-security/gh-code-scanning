@@ -2,6 +2,12 @@
 
 A GitHub CLI extension to bulk-enable GitHub Code-Scanning!
 
+### Dependencies
+
+- [`gh`](https://cli.github.com/)
+- `git`
+- Python (version 3.5 or higher)
+
 ### Installation
 
 ```shell
