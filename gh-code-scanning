@@ -46,6 +46,28 @@ class GithubRepository(object):
     def __str__(self):
         return '%s/%s' % (self.owner, self.repository)
 
+    @property
+    def default_branch(self):
+        try:
+            cmd = subprocess.run([self.gh_exe, 'api', 'repos/' + self], capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message = e.stderr.decode('utf-8').strip()
+            sys.stderr.write(message)
+            sys.exit(1)
+
+        return json.loads(cmd.stdout)['default_branch']
+
+    @property
+    def languages(self):
+        try:
+            cmd = subprocess.run([self.gh_exe, 'api', 'repos/%s/languages' % self], capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message = e.stderr.decode('utf-8').strip()
+            sys.stderr.write(message)
+            sys.exit(1)
+
+        return json.loads(cmd.stdout)
+
     def analyses(self):
         try:
             cmd = subprocess.run(
@@ -170,14 +192,6 @@ def do_enable(args):
         else:
             return None
 
-    def get_repo_default_branch(gh, nwo):
-        cmd = subprocess.run([gh, 'api', os.path.join('repos', nwo)], capture_output=True)
-        return json.loads(cmd.stdout)['default_branch']
-
-    def get_repo_langs(gh, nwo):
-        cmd = subprocess.run([gh, 'api', os.path.join('repos', nwo, 'languages')], capture_output=True)
-        return json.loads(cmd.stdout)
-
     def generate_random_weekly_cron():
         return '{} {} {} {} {}'.format(
             random.randint(0, 59), # minute
@@ -200,7 +214,7 @@ def do_enable(args):
     for nwo in args.repos:
         os.chdir('/')
 
-        repo_langs = { normalize_lang(x) for x in get_repo_langs(args.gh, nwo) if normalize_lang(x) is not None }
+        repo_langs = { normalize_lang(x) for x in nwo.languages if normalize_lang(x) is not None }
         if len(repo_langs) == 0:
             sys.stderr.write('error: %s: no supported programming languages.\n' % nwo)
             continue
@@ -218,7 +232,7 @@ def do_enable(args):
                 subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
 
             workflow_contents = workflow_template.safe_substitute(
-                DEFAULT_BRANCH_EXPR=repr(get_repo_default_branch(args.gh, nwo)),
+                DEFAULT_BRANCH_EXPR=repr(nwo.default_branch),
                 SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
                 MATRIX_LANGUAGE_EXPR=repr(list(repo_langs))
             )
@@ -306,7 +320,7 @@ def main():
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
-    parser_enable.add_argument('repos', nargs='+')
+    parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_enable.set_defaults(func=do_enable)
     
     parser_alerts = subparsers.add_parser('alerts', help='download code-scanning alerts.')
