@@ -5,6 +5,13 @@ A GitHub CLI extension to bulk-enable GitHub Code-Scanning!
 ### Installation
 
 ```shell
+# Disable gh's "interactive" mode, since gh-code-scanning is designed to be used in scripts.
+gh config set prompt disabled
+
+# Configure gh to use SSH instead of HTTPS for git operations. This is required.
+gh config set git_protocol ssh
+
+# Install the extension.
 gh extension install mario-campos/gh-code-scanning
 ```
 
