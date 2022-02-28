@@ -130,7 +130,7 @@ def enable(args):
 
         repo_langs = { normalize_lang(x) for x in get_repo_langs(args.gh, nwo) if normalize_lang(x) is not None }
         if len(repo_langs) == 0:
-            print('error: %s: no supported programming languages.' % nwo, file=sys.stderr)
+            sys.stderr.write('error: %s: no supported programming languages.\n' % nwo)
             continue
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -139,7 +139,7 @@ def enable(args):
             os.chdir(temp_dir)
 
             if os.path.exists(workflow_dstpath) and not args.force:
-                print('error: %s: workflow "%s" already exists.' % (nwo, workflow_name), file=sys.stderr)
+                sys.stderr.write('error: %s: workflow "%s" already exists.\n' % (nwo, workflow_name))
                 continue
             
             if not args.git_push:
@@ -174,7 +174,7 @@ def alerts(args):
             alerts = get_repo_cs_alerts(args.gh, nwo)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('UTF-8').strip()
-            print('error: %s: %s' % (nwo, message), file=sys.stderr)
+            sys.stderr.write('error: %s: %s\n' % (nwo, message))
             continue
         for alert in alerts:
             print(nwo,
@@ -191,7 +191,7 @@ def analyses(args):
             cmd = subprocess.run([gh, 'api', '--paginate', os.path.join('repos', owner, repo, 'code-scanning/analyses')], capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('utf-8').strip()
-            print(message, file=sys.stderr)
+            sys.stderr.write(message)
             sys.exit(1)
 
         for analysis_object in json_multiloads(cmd.stdout):
@@ -205,7 +205,7 @@ def analyses(args):
         analyses = get_repo_cs_analyses(args.gh, owner, repo)
     except subprocess.CalledProcessError as e:
         message = e.stderr.decode('UTF-8').strip()
-        print('error: %s: %s' % (args.repo, message), file=sys.stderr)
+        sys.stderr.write('error: %s: %s\n' % (args.repo, message))
         sys.exit(1)
 
     if args.delete:
