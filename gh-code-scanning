@@ -220,8 +220,8 @@ def do_enable(args):
     for repo in args.repos:
         os.chdir('/')
 
-        repo_langs = filter(None, map(normalize_lang, repo.languages))
-        if len(repo_langs) == 0:
+        supported_langs = list(filter(None, map(normalize_lang, repo.languages)))
+        if len(supported_langs) == 0:
             sys.stderr.write('error: %s: no supported programming languages.\n' % repo)
             continue
 
@@ -240,7 +240,7 @@ def do_enable(args):
             workflow_contents = workflow_template.safe_substitute(
                 DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
                 SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
-                MATRIX_LANGUAGE_EXPR=repr(list(repo_langs))
+                MATRIX_LANGUAGE_EXPR=repr(supported_langs)
             )
 
             os.makedirs(workflow_dstdir, exist_ok=True)
