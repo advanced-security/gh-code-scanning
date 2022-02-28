@@ -59,7 +59,7 @@ class GithubRepository(object):
             sys.exit(1)
 
         for analysis_object in json_multiloads(cmd.stdout):
-            yield CodeScanningAnalysis.from_api(self.gh_exe, self, analysis_object)
+            yield CodeScanningAnalysis.from_api(self, analysis_object, self.gh_exe)
 
     def alerts(self):
         try:
@@ -73,11 +73,11 @@ class GithubRepository(object):
             yield CodeScanningAlert(alert_object)
 
 class CodeScanningAnalysis(object):
-    def __init__(self, gh_exe, repository, id, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
+    def __init__(self, repository, id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
-        self.gh_exe        = gh_exe
         self.repository    = repository
         self.id            = id
+        self.gh_exe        = gh_exe
         self.ref           = ref
         self.commit_sha    = commit_sha
         self.analysis_key  = analysis_key
@@ -92,9 +92,9 @@ class CodeScanningAnalysis(object):
     @classmethod
     def from_api(cls, gh_exe, repository, obj):
         return cls(
-            gh_exe,
             repository,
-            id=obj['id'],
+            obj['id'],
+            gh_exe,
             ref=obj['ref'],
             commit_sha=obj['commit_sha'],
             analysis_key=obj['analysis_key'],
@@ -110,12 +110,11 @@ class CodeScanningAnalysis(object):
     def is_deletable(self):
         return self.deletable
 
-    def delete(self, gh):
+    def delete(self):
         """
         Delete this Code Scanning analysis from the repository. This function returns a CodeScanningAnalysis
         object of the next analysis that can be deletd, if one exists.
         """
-
         try:
             cmd = subprocess.run(
                 [
@@ -134,7 +133,7 @@ class CodeScanningAnalysis(object):
             return None
 
         next_analysis_id = int(next_analysis['next_analysis_url'].split('/')[-1])
-        return self.__class__(self.gh_exe, self.repository, next_analysis_id, deletable=True)
+        return self.__class__(self.repository, next_analysis_id, self.gh_exe, deletable=True)
 
 class CodeScanningAlert(object):
     def __init__(self, obj):
