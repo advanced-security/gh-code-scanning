@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import argparse
 import json
@@ -37,8 +37,8 @@ class GithubRepository(object):
     def with_kwargs(cls, **kwargs):
         """
         This classmethod returns a closure, which returns a class instance of GithubRepository.
-        By returning a closure, we are able to pass other argumehnts, such as `gh_exe` separately
-        and partially apply it to the constructor. This is very handy, when passing this class to
+        By returning a closure, I can pass other arguments, such as `gh_exe` separately
+        and partially apply them to the constructor. This is very handy for passing this class to
         libraries like ArgParse that will instantiate new instances of this class with only one argument.
         """
         return lambda nwo: cls(nwo, **kwargs)
