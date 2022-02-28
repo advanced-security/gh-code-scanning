@@ -22,11 +22,59 @@ def json_multiloads(json_string, spool=[]):
         json_multiloads(json_string[e.pos:], spool)
     return spool
 
+class GithubRepository(object):
+    def __init__(self, nwo, gh_exe, git_exe):
+        self.gh_exe = gh_exe
+        self.git_exe = git_exe
+        try:
+            self.owner, self.repository = nwo.split('/')
+        except ValueError:
+            sys.stderr.write('error: argument "%s" must be in the "name with owner" format (owner/repository).\n' % nwo)
+            sys.exit(1)
+
+    @classmethod
+    def with_kwargs(cls, **kwargs):
+        """
+        This classmethod returns a closure, which returns a class instance of GithubRepository.
+        By returning a closure, we are able to pass other argumehnts, such as `gh_exe` separately
+        and partially apply it to the constructor. This is very handy, when passing this class to
+        libraries like ArgParse that will instantiate new instances of this class with only one argument.
+        """
+        return lambda nwo: cls(nwo, **kwargs)
+
+    def __str__(self):
+        return '%s/%s' % (self.owner, self.repository)
+
+    def analyses(self):
+        try:
+            cmd = subprocess.run(
+                [ self.gh_exe, 'api', '--paginate', 'repos/%s/code-scanning/analyses' % self ],
+                capture_output=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            message = e.stderr.decode('utf-8').strip()
+            sys.stderr.write(message)
+            sys.exit(1)
+
+        for analysis_object in json_multiloads(cmd.stdout):
+            yield CodeScanningAnalysis.from_api(self.gh_exe, self, analysis_object)
+
+    def alerts(self):
+        try:
+            cmd = subprocess.run([self.gh_exe, 'api', '--paginate', 'repos/%s/code-scanning/alerts' % self], capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message = e.stderr.decode('utf-8').strip()
+            sys.stderr.write(message)
+            sys.exit(1)
+
+        return json_multiloads(cmd.stdout)
+
 class CodeScanningAnalysis(object):
-    def __init__(self, owner, repo, id, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
+    def __init__(self, gh_exe, repository, id, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
-        self.owner         = owner
-        self.repo          = repo
+        self.gh_exe        = gh_exe
+        self.repository    = repository
         self.id            = id
         self.ref           = ref
         self.commit_sha    = commit_sha
@@ -40,8 +88,10 @@ class CodeScanningAnalysis(object):
         self.deletable     = deletable
 
     @classmethod
-    def from_api(cls, owner, repo, obj):
-        return cls(owner, repo,
+    def from_api(cls, gh_exe, repository, obj):
+        return cls(
+            gh_exe,
+            repository,
             id=obj['id'],
             ref=obj['ref'],
             commit_sha=obj['commit_sha'],
@@ -67,14 +117,14 @@ class CodeScanningAnalysis(object):
         try:
             cmd = subprocess.run(
                 [
-                    gh, 'api', '--method=DELETE',
-                    'repos/%s/%s/code-scanning/analyses/%d?confirm_delete=true' % (self.owner, self.repo, self.id)
+                    self.gh_exe, 'api', '--method=DELETE',
+                    'repos/%s/code-scanning/analyses/%d?confirm_delete=true' % (self.repository, self.id)
                 ],
                 capture_output=True,
                 check=True,
             )
         except subprocess.CalledProcessError:
-            sys.stderr.write('warn: %s/%s: cannot delete analysis %d.\n' % (self.owner, self.repo, self.id))
+            sys.stderr.write('warn: %s: cannot delete analysis %d.\n' % (self.repository, self.id))
             return
 
         next_analysis = json.loads(cmd.stdout)
@@ -82,7 +132,7 @@ class CodeScanningAnalysis(object):
             return None
 
         next_analysis_id = int(next_analysis['next_analysis_url'].split('/')[-1])
-        return self.__class__(self.owner, self.repo, next_analysis_id, deletable=True)
+        return self.__class__(self.gh_exe, self.repository, next_analysis_id, deletable=True)
 
 def enable(args):
     def normalize_lang(lang):
@@ -175,19 +225,9 @@ def enable(args):
                 subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', nwo, '--head', branch_name], stdout=output, stderr=output)
 
 def alerts(args):
-    def get_repo_cs_alerts(gh, nwo):
-        cmd = subprocess.run([gh, 'api', '--paginate', os.path.join('repos', nwo, 'code-scanning/alerts')], capture_output=True, check=True)
-        return json_multiloads(cmd.stdout)
-
-    for nwo in args.repos:
-        try:
-            alerts = get_repo_cs_alerts(args.gh, nwo)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('UTF-8').strip()
-            sys.stderr.write('error: %s: %s\n' % (nwo, message))
-            continue
-        for alert in alerts:
-            print(nwo,
+    for repo in args.repos:
+       for alert in repo.alerts():
+            print(repo,
                   format(alert['number'], '>4d'),
                   alert['created_at'],
                   format(alert['state'], '>9s'),
@@ -196,28 +236,6 @@ def alerts(args):
             )
 
 def analyses(args):
-    def get_repo_cs_analyses(gh, owner, repo):
-        try:
-            cmd = subprocess.run([gh, 'api', '--paginate', os.path.join('repos', owner, repo, 'code-scanning/analyses')], capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('utf-8').strip()
-            sys.stderr.write(message)
-            sys.exit(1)
-
-        for analysis_object in json_multiloads(cmd.stdout):
-            yield CodeScanningAnalysis.from_api(owner, repo, analysis_object)
-
-    # FIXME: validate that args.repo matches the name-with-owner syntax,
-    # because if it doesn't, Python will likely choke.
-    owner, repo = tuple(args.repo.split('/'))
-
-    try:
-        analyses = get_repo_cs_analyses(args.gh, owner, repo)
-    except subprocess.CalledProcessError as e:
-        message = e.stderr.decode('UTF-8').strip()
-        sys.stderr.write('error: %s: %s\n' % (args.repo, message))
-        sys.exit(1)
-
     if args.delete:
         deletables = [ analysis for analysis in analyses if analysis.is_deletable() ]
 
@@ -227,14 +245,14 @@ def analyses(args):
             except IndexError:
                 return # done -- all analyses have been deleted!
 
-            next_analysis = this_analysis.delete(args.gh)
+            next_analysis = this_analysis.delete()
             if next_analysis is not None:
                 deletables.append(next_analysis)
 
             print(this_analysis.id)
 
     # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
-    for analysis in analyses:
+    for analysis in args.repo.analyses():
         print(args.repo,
               format(analysis.id, '>9d'),
               analysis.created_at,
@@ -280,12 +298,12 @@ def main():
     parser_enable.set_defaults(func=enable)
     
     parser_alerts = subparsers.add_parser('alerts', help='download code-scanning alerts.')
-    parser_alerts.add_argument('repos', nargs='+')
+    parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_alerts.set_defaults(func=alerts)
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
     parser_analyses.add_argument('-d', dest='delete', action='store_true')
-    parser_analyses.add_argument('repo')
+    parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_analyses.set_defaults(func=analyses)
     
     args = parser.parse_args()
