@@ -1,4 +1,4 @@
-name: PyCompile
+name: py_compile
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  pycompile:
+  py_compile:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -25,4 +25,4 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Check syntax against Python ${{ matrix.python-version }}
-      run: python -m pycompile gh-code-scanning
+      run: python -m py_compile gh-code-scanning
