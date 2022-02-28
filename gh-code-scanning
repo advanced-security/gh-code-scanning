@@ -64,8 +64,18 @@ class CodeScanningAnalysis:
         object of the next analysis that can be deletd, if one exists.
         """
 
-        # FIXME: wrap this in a try/except block to catch spontaneous failures.
-        cmd = subprocess.run([gh, 'api', '--method', 'DELETE', '/repos/%s/%s/code-scanning/analyses/%d?confirm_delete=true' % (self.owner, self.repo, self.id)], capture_output=True, check=True)
+        try:
+            cmd = subprocess.run(
+                [
+                    gh, 'api', '--method=DELETE',
+                    'repos/%s/%s/code-scanning/analyses/%d?confirm_delete=true' % (self.owner, self.repo, self.id)
+                ],
+                capture_output=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            sys.stderr.write('warn: %s/%s: cannot delete analysis %d.\n' % (self.owner, self.repo, self.id))
+            return
 
         next_analysis = json.loads(cmd.stdout)
         if next_analysis['next_analysis_url'] is None and next_analysis['confirm_delete_url'] is None:
