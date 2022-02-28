@@ -59,8 +59,6 @@ gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-s
 
 #### List Code-Scanning analyses
 
-List the analyses of a repository:
-
 ```shell
 gh code-scanning analyses mario-campos/gh-code-scanning
 ```
