@@ -214,7 +214,7 @@ def do_enable(args):
     for nwo in args.repos:
         os.chdir('/')
 
-        repo_langs = { normalize_lang(x) for x in nwo.languages if normalize_lang(x) is not None }
+        repo_langs = filter(None, map(normalize_lang, nwo.languages))
         if len(repo_langs) == 0:
             sys.stderr.write('error: %s: no supported programming languages.\n' % nwo)
             continue
