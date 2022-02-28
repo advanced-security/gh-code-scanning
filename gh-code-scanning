@@ -101,10 +101,10 @@ class GithubRepository(object):
             yield CodeScanningAlert(alert_object)
 
 class CodeScanningAnalysis(object):
-    def __init__(self, repository, id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
+    def __init__(self, repository, analysis_id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
         self.repository    = repository
-        self.id            = id
+        self.id            = analysis_id
         self.gh_exe        = gh_exe
         self.ref           = ref
         self.commit_sha    = commit_sha
