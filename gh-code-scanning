@@ -134,7 +134,7 @@ class CodeScanningAnalysis(object):
         next_analysis_id = int(next_analysis['next_analysis_url'].split('/')[-1])
         return self.__class__(self.gh_exe, self.repository, next_analysis_id, deletable=True)
 
-def enable(args):
+def do_enable(args):
     def normalize_lang(lang):
         """
         CodeQL uses certain keywords to identify a language. These keywords are typically
@@ -224,7 +224,7 @@ def enable(args):
                 subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
                 subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', nwo, '--head', branch_name], stdout=output, stderr=output)
 
-def alerts(args):
+def do_alerts(args):
     for repo in args.repos:
        for alert in repo.alerts():
             print(repo,
@@ -235,7 +235,7 @@ def alerts(args):
                   '{}:{}'.format(alert['most_recent_instance']['location']['path'], alert['most_recent_instance']['location']['start_line'])
             )
 
-def analyses(args):
+def do_analyses(args):
     if args.delete:
         deletables = [ analysis for analysis in analyses if analysis.is_deletable() ]
 
@@ -295,16 +295,16 @@ def main():
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
     parser_enable.add_argument('repos', nargs='+')
-    parser_enable.set_defaults(func=enable)
+    parser_enable.set_defaults(func=do_enable)
     
     parser_alerts = subparsers.add_parser('alerts', help='download code-scanning alerts.')
     parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
-    parser_alerts.set_defaults(func=alerts)
+    parser_alerts.set_defaults(func=do_alerts)
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
     parser_analyses.add_argument('-d', dest='delete', action='store_true')
     parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
-    parser_analyses.set_defaults(func=analyses)
+    parser_analyses.set_defaults(func=do_analyses)
     
     args = parser.parse_args()
     args.func(args)
