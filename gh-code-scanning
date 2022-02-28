@@ -27,6 +27,7 @@ class GithubRepository(object):
     def __init__(self, nwo, gh_exe, git_exe):
         self.gh_exe = gh_exe
         self.git_exe = git_exe
+        self._default_branch = None
         try:
             self.owner, self.repository = nwo.split('/')
         except ValueError:
@@ -48,6 +49,9 @@ class GithubRepository(object):
 
     @property
     def default_branch(self):
+        if self._default_branch is not None:
+            return self._default_branch
+
         try:
             cmd = subprocess.run([self.gh_exe, 'api', 'repos/' + self], capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
@@ -55,7 +59,9 @@ class GithubRepository(object):
             sys.stderr.write(message)
             sys.exit(1)
 
-        return json.loads(cmd.stdout)['default_branch']
+        # Let's memoize this, because the default branch is unlikely to change while executing.
+        self._default_branch = json.loads(cmd.stdout)['default_branch']
+        return self._default_branch
 
     @property
     def languages(self):
@@ -211,28 +217,28 @@ def do_enable(args):
     with open(workflow_srcpath) as f:
         workflow_template = string.Template(f.read())
 
-    for nwo in args.repos:
+    for repo in args.repos:
         os.chdir('/')
 
-        repo_langs = filter(None, map(normalize_lang, nwo.languages))
+        repo_langs = filter(None, map(normalize_lang, repo.languages))
         if len(repo_langs) == 0:
-            sys.stderr.write('error: %s: no supported programming languages.\n' % nwo)
+            sys.stderr.write('error: %s: no supported programming languages.\n' % repo)
             continue
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            subprocess.run([args.gh, 'repo', 'clone', nwo, temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
+            subprocess.run([args.gh, 'repo', 'clone', repo, temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
             
             os.chdir(temp_dir)
 
             if os.path.exists(workflow_dstpath) and not args.force:
-                sys.stderr.write('error: %s: workflow "%s" already exists.\n' % (nwo, workflow_name))
+                sys.stderr.write('error: %s: workflow "%s" already exists.\n' % (repo, workflow_name))
                 continue
             
             if not args.git_push:
                 subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
 
             workflow_contents = workflow_template.safe_substitute(
-                DEFAULT_BRANCH_EXPR=repr(nwo.default_branch),
+                DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
                 SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
                 MATRIX_LANGUAGE_EXPR=repr(list(repo_langs))
             )
@@ -245,10 +251,10 @@ def do_enable(args):
             subprocess.run([args.git, 'commit', '--message', args.message], stdout=output, stderr=output)
 
             if args.git_push:
-                subprocess.run([args.git, 'push', 'origin', get_repo_default_branch(args.gh, nwo)], stdout=output, stderr=output)
+                subprocess.run([args.git, 'push', 'origin', repo.default_branch], stdout=output, stderr=output)
             else:
                 subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
-                subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', nwo, '--head', branch_name], stdout=output, stderr=output)
+                subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', repo, '--head', branch_name], stdout=output, stderr=output)
 
 def do_alerts(args):
     for repo in args.repos:
