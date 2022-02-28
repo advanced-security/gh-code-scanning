@@ -1,12 +1,16 @@
 name: Pylint
 
-on: [push]
+on:
+  push:
+    branches: master
+    paths: gh-code-scanning
+  pull_request:
+    branches: master
+    paths: gh-code-scanning
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.9
