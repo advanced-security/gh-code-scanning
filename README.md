@@ -1,6 +1,6 @@
 # gh-code-scanning
 
-A GitHub CLI extension to bulk-enable GitHub Code-Scanning!
+A GitHub CLI extension for GitHub Code-Scanning!
 
 ### Dependencies
 
