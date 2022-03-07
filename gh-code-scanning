@@ -334,7 +334,7 @@ def main():
     parser_alerts.set_defaults(func=do_alerts)
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
-    parser_analyses.add_argument('-d', dest='delete', action='store_true')
+    parser_analyses.add_argument('-d', '--delete', action='store_true')
     parser_analyses.add_argument('-r', '--ref')
     parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_analyses.set_defaults(func=do_analyses)
