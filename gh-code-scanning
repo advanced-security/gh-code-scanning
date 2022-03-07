@@ -74,13 +74,14 @@ class GithubRepository(object):
 
         return json.loads(cmd.stdout)
 
-    def analyses(self):
+    def analyses(self, ref=None):
+        if ref is None:
+            endpoint = 'repos/%s/code-scanning/analyses' % self
+        else:
+            endpoint = 'repos/%s/code-scanning/analyses?ref=%s' % (self, ref)
+
         try:
-            cmd = subprocess.run(
-                [ self.gh_exe, 'api', '--paginate', 'repos/%s/code-scanning/analyses' % self ],
-                capture_output=True,
-                check=True,
-            )
+            cmd = subprocess.run([ self.gh_exe, 'api', '--paginate', endpoint ], capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('utf-8').strip()
             sys.stderr.write(message)
@@ -268,7 +269,7 @@ def do_alerts(args):
 
 def do_analyses(args):
     if args.delete:
-        delete_queue = [ analysis for analysis in args.repo.analyses() if analysis.is_deletable() ]
+        delete_queue = [ analysis for analysis in args.repo.analyses(ref=args.ref) if analysis.is_deletable() ]
 
         while True:
             try:
@@ -283,7 +284,7 @@ def do_analyses(args):
             print(this_analysis.id)
 
     # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
-    for analysis in args.repo.analyses():
+    for analysis in args.repo.analyses(ref=args.ref):
         print(args.repo,
               format(analysis.id, '>9d'),
               analysis.created_at,
@@ -334,6 +335,7 @@ def main():
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
     parser_analyses.add_argument('-d', dest='delete', action='store_true')
+    parser_analyses.add_argument('-r', '--ref')
     parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_analyses.set_defaults(func=do_analyses)
     
