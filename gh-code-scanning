@@ -75,13 +75,13 @@ class GithubRepository(object):
         return json.loads(cmd.stdout)
 
     def analyses(self, ref=None):
-        if ref is None:
-            endpoint = 'repos/%s/code-scanning/analyses' % self
-        else:
-            endpoint = 'repos/%s/code-scanning/analyses?ref=%s' % (self, ref)
+        command = [ self.gh_exe, 'api', 'repos/%s/code-scanning/analyses' % self, '--paginate', '--method=GET' ]
+
+        if ref is not None:
+            command.append('--raw-field=ref=%s' % ref)
 
         try:
-            cmd = subprocess.run([ self.gh_exe, 'api', '--paginate', endpoint ], capture_output=True, check=True)
+            cmd = subprocess.run(command, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('utf-8').strip()
             sys.stderr.write(message)
