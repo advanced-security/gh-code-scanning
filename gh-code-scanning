@@ -81,14 +81,14 @@ class GithubRepository(object):
             command.append('--raw-field=ref=%s' % ref)
 
         try:
-            cmd = subprocess.run(command, capture_output=True, check=True)
+            gh_process = subprocess.run(command, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('utf-8').strip()
             sys.stderr.write(message)
             sys.exit(1)
 
-        for analysis_object in json_multiloads(cmd.stdout):
-            yield CodeScanningAnalysis.from_api(self, analysis_object, self.gh_exe)
+        for analysis_json_obj in json_multiloads(gh_process.stdout):
+            yield CodeScanningAnalysis.from_api(self, analysis_json_obj, self.gh_exe)
 
     def alerts(self):
         try:
