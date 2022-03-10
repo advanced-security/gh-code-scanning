@@ -267,6 +267,10 @@ def do_alerts(args):
                   '{}:{}'.format(alert.location.path, alert.location.start_line),
             )
 
+            # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
+            # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
+            sys.stdout.flush()
+
 def do_analyses(args):
     if args.delete:
         delete_queue = [ analysis for analysis in args.repo.analyses(ref=args.ref) if analysis.is_deletable() ]
@@ -283,6 +287,10 @@ def do_analyses(args):
 
             print(this_analysis.id)
 
+            # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
+            # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
+            sys.stdout.flush()
+
     # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
     for analysis in args.repo.analyses(ref=args.ref):
         print(args.repo,
@@ -294,6 +302,10 @@ def do_analyses(args):
               'Y' if analysis.is_deletable() else 'N',
               analysis.sarif_id,
         )
+
+        # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
+        # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
+        sys.stdout.flush()
 
 def main():
     def get_parent_exe():
