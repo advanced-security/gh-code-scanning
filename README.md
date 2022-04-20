@@ -31,7 +31,7 @@ gh extension install https://github.com/mario-campos/gh-code-scanning
 Use the `enable` subcommand to "deploy" GitHub Code Scanning with CodeQL, by adding a GitHub Actions workflow file to a repository.
 
 ```
-usage: gh-code-scanning enable [-h] [-f] [--git-push] [-m MESSAGE] repos [repos ...]
+usage: gh code-scanning enable [-h] [-f] [--git-push] [-m MESSAGE] repos [repos ...]
 
 positional arguments:
   repos
@@ -74,7 +74,7 @@ gh repo list foo \
 The `alerts` subcommand is used to output the set of GitHub Code Scanning alerts of a repository.
 
 ```
-usage: gh-code-scanning alerts [-h] repos [repos ...]
+usage: gh code-scanning alerts [-h] repos [repos ...]
 
 positional arguments:
   repos
@@ -100,7 +100,7 @@ gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-s
 The `analyses` subcommand is used to output or delete the GitHub Code Scanning analyses of a repository.
 
 ```
-usage: gh-code-scanning analyses [-h] [-d] [-r REF] repo
+usage: gh code-scanning analyses [-h] [-d] [-r REF] repo
 
 positional arguments:
   repo
