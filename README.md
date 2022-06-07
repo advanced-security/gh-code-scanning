@@ -27,7 +27,7 @@ gh extension install https://github.com/mario-campos/gh-code-scanning
 
 #### Enable
 
-Use the `enable` subcommand to "deploy" GitHub Code Scanning with CodeQL, by adding a GitHub Actions workflow file to a repository.
+Use the `enable` subcommand to "deploy" GitHub Code Scanning with CodeQL, by 1) enabling GitHub Advanced Security and 2) adding a GitHub Actions workflow file to the given repository.
 
 ```
 usage: gh code-scanning enable [-h] [-f] [--git-push] [-m MESSAGE] repos [repos ...]

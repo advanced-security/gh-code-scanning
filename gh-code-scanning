@@ -256,6 +256,21 @@ def do_enable(args):
                 subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
                 subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', str(repo), '--head', branch_name], stdout=output, stderr=output)
 
+            # Enable GitHub Advanced Security on the repository.
+            subprocess.run(
+                [
+                    args.gh,
+                    'api',
+                    '/repos/%s' % repo,
+                    '--method=PATCH',
+                    '--input=-',
+                ],
+                input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
+                text=True,
+                stdout=output,
+                stderr=output,
+            )
+
 def do_alerts(args):
     for repo in args.repos:
         for alert in repo.alerts():
