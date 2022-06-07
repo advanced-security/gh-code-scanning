@@ -7,7 +7,6 @@ A GitHub CLI extension for GitHub Code-Scanning!
 - [`gh`](https://cli.github.com/)
 - `git`
 - Python (version 3.5 or higher)
-- Unix-like system (Linux, macOS, or BSD)
 
 ### Installation
 

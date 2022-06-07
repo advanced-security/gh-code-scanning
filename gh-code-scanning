@@ -308,18 +308,7 @@ def do_analyses(args):
         sys.stdout.flush()
 
 def main():
-    def get_parent_exe():
-        """
-        Get the parent process' argv[0], which is the name, and path if referenced using an absolute path, of the executable.
-        """
-        try:
-            ps = subprocess.run(['ps', '-oargs=', '-p', str(os.getppid())], capture_output=True, check=True)
-            return ps.stdout.decode('UTF-8').split()[0]
-        except subprocess.CalledProcessError:
-            return None
-
-    # If executed with /path/to/gh, try to get /path/to/gh. Failing that, try to find `gh` in $PATH.
-    gh_exe = get_parent_exe() or shutil.which('gh')
+    gh_exe = shutil.which('gh')
     if gh_exe is None:
         sys.exit('error: cannot find `gh` executable; please specify a path with `--gh`.')
 
