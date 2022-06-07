@@ -227,13 +227,13 @@ def do_enable(args):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             subprocess.run([args.gh, 'repo', 'clone', str(repo), temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
-            
+
             os.chdir(temp_dir)
 
             if os.path.exists(workflow_dstpath) and not args.force:
                 sys.stderr.write('error: %s: workflow "%s" already exists.\n' % (repo, workflow_name))
                 continue
-            
+
             if not args.git_push:
                 subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
 
@@ -246,7 +246,7 @@ def do_enable(args):
             os.makedirs(workflow_dstdir, exist_ok=True)
             with open(workflow_dstpath, 'w') as f:
                 f.write(workflow_contents)
-            
+
             subprocess.run([args.git, 'add', '--all'], stdout=output, stderr=output)
             subprocess.run([args.git, 'commit', '--message', args.message], stdout=output, stderr=output)
 
@@ -326,21 +326,21 @@ def main():
     git_exe = shutil.which('git')
     if git_exe is None:
         sys.exit('error: cannot find `git` executable; please specify a path with `--git`.')
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--gh', metavar='path', default=gh_exe, help='path to the gh executable.')
     parser.add_argument('--git', metavar='path', default=git_exe, help='path to the git executable.')
     parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
-    
+
     parser_enable = subparsers.add_parser('enable', help='set up Code Scanning with GitHub CodeQL.')
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
     parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_enable.set_defaults(func=do_enable)
-    
+
     parser_alerts = subparsers.add_parser('alerts', help='download code-scanning alerts.')
     parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_alerts.set_defaults(func=do_alerts)
@@ -350,7 +350,7 @@ def main():
     parser_analyses.add_argument('-r', '--ref')
     parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
     parser_analyses.set_defaults(func=do_analyses)
-    
+
     args = parser.parse_args()
     args.func(args)
 
