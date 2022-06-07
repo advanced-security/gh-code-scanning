@@ -263,8 +263,10 @@ def do_enable(args):
                     'api',
                     '/repos/%s' % repo,
                     '--method=PATCH',
-                    '--field=security_and_analysis={"advanced_security":{"status":"enabled"}}',
+                    '--input=-',
                 ],
+                input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
+                text=True,
                 stdout=output,
                 stderr=output,
             )
