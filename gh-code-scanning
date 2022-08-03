@@ -170,7 +170,18 @@ class CodeScanningAlert(object):
 
         self.number     = obj['number']
         self.created_at = obj['created_at']
-        self.state      = obj['state']
+
+        if obj['state'] in {'open', 'closed', 'fixed'}:
+            self.state = obj['state']
+        elif obj['dismissed_reason'] == 'false positive':
+            self.state = 'dismissed:false-positive'
+        elif obj['dismissed_reason'] == "won't fix":
+            self.state = 'dismissed:wont-fix'
+        elif obj['dismissed_reason'] == 'used in tests':
+            self.state = 'dismissed:used-in-tests'
+        else:
+            self.state = 'dismissed:other'
+
         self.rule       = Rule(obj['rule']['name'], obj['rule']['id'], obj['rule'].get('severity', obj['rule'].get('security_severity_level')), obj['rule']['tags'])
         self.location   = Location(**obj['most_recent_instance']['location'])
 
@@ -308,7 +319,7 @@ def do_alerts(args):
             print(repo,
                   format(alert.number, '>4d'),
                   alert.created_at,
-                  format(alert.state, '>9s'),
+                  format(alert.state, '>24s'),
                   alert.rule.id,
                   '{}:{}'.format(alert.location.path, alert.location.start_line),
             )
