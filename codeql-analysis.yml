@@ -2,9 +2,9 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ $DEFAULT_BRANCH_EXPR ]
+    branches: $DEFAULT_BRANCH_EXPR
   pull_request:
-    branches: [ $DEFAULT_BRANCH_EXPR ]
+    branches: $DEFAULT_BRANCH_EXPR
   schedule:
     - cron: $SCHEDULE_CRON_EXPR
 
