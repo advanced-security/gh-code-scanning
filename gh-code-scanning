@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import json
 import os
 import random
@@ -8,7 +9,6 @@ import shutil
 import string
 import subprocess
 import sys
-import tempfile
 import collections
 
 def json_multiloads(json_string, spool=[]):
@@ -217,58 +217,90 @@ def do_enable(args):
         workflow_template = string.Template(f.read())
 
     for repo in args.repos:
-        os.chdir('/')
-
         supported_langs = list(filter(None, map(normalize_lang, repo.languages)))
         if len(supported_langs) == 0:
             sys.stderr.write('error: %s: no supported programming languages.\n' % repo)
             continue
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            subprocess.run([args.gh, 'repo', 'clone', str(repo), temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
+        workflow_contents = workflow_template.safe_substitute(
+            DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
+            SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
+            MATRIX_LANGUAGE_EXPR=repr(supported_langs)
+        )
 
-            os.chdir(temp_dir)
+        create_file_payload = {
+            'message': 'Create %s' % workflow_name,
+            'content': base64.b64encode(workflow_contents.encode('utf-8')).decode('utf-8'),
+            'branch' : repo.default_branch if args.git_push else branch_name
+        }
 
-            if os.path.exists(workflow_dstpath) and not args.force:
-                sys.stderr.write('error: %s: workflow "%s" already exists.\n' % (repo, workflow_name))
-                continue
-
-            if not args.git_push:
-                subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
-
-            workflow_contents = workflow_template.safe_substitute(
-                DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
-                SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
-                MATRIX_LANGUAGE_EXPR=repr(supported_langs)
+        if not args.git_push:
+            p = subprocess.run(
+                [
+                    args.gh,
+                    'api',
+                    '/repos/%s/commits/%s' % (repo, 'heads/' + repo.default_branch),
+                    '--header=Accept: application/vnd.github.sha',
+                ],
+                stdout=subprocess.PIPE,
+                stderr=output,
             )
-
-            os.makedirs(workflow_dstdir, exist_ok=True)
-            with open(workflow_dstpath, 'w') as f:
-                f.write(workflow_contents)
-
-            subprocess.run([args.git, 'add', '--all'], stdout=output, stderr=output)
-            subprocess.run([args.git, 'commit', '--message', args.message], stdout=output, stderr=output)
-
-            if args.git_push:
-                subprocess.run([args.git, 'push', 'origin', repo.default_branch], stdout=output, stderr=output)
-            else:
-                subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
-                subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', str(repo), '--head', branch_name], stdout=output, stderr=output)
-
-            # Enable GitHub Advanced Security on the repository.
             subprocess.run(
                 [
                     args.gh,
                     'api',
-                    '/repos/%s' % repo,
-                    '--method=PATCH',
-                    '--input=-',
+                    '/repos/%s/git/refs' % repo,
+                    '--method=POST',
+                    '--raw-field=ref=refs/heads/%s' % branch_name,
+                    '--raw-field=sha=%s' % p.stdout.strip().decode('utf-8'),
                 ],
-                input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
-                text=True,
                 stdout=output,
                 stderr=output,
             )
+
+        subprocess.run(
+            [
+                args.gh,
+                'api',
+                '/repos/%s/contents/%s' % (repo, workflow_dstpath),
+                '--method=PUT',
+                '--input=-',
+            ],
+            input=json.dumps(create_file_payload),
+            text=True,
+            stdout=output,
+            stderr=output,
+        )
+
+        if not args.git_push:
+            subprocess.run(
+                [
+                    args.gh,
+                    'api',
+                    '/repos/%s/pulls' % repo,
+                    '--method=POST',
+                    '--raw-field=title=Create %s workflow file' % workflow_name,
+                    '--raw-field=head=%s' % branch_name,
+                    '--raw-field=base=%s' % repo.default_branch,
+                ],
+                stdout=output,
+                stderr=output,
+            )
+
+        # Enable GitHub Advanced Security on the repository.
+        subprocess.run(
+            [
+                args.gh,
+                'api',
+                '/repos/%s' % repo,
+                '--method=PATCH',
+                '--input=-',
+            ],
+            input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
+            text=True,
+            stdout=output,
+            stderr=output,
+        )
 
 def do_alerts(args):
     for repo in args.repos:
