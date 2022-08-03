@@ -24,9 +24,8 @@ def json_multiloads(json_string, spool=[]):
     return spool
 
 class GithubRepository(object):
-    def __init__(self, nwo, gh_exe, git_exe):
+    def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
-        self.git_exe = git_exe
         self._default_branch = None
         try:
             self.owner, self.repository = nwo.split('/')
@@ -327,13 +326,9 @@ def main():
     if gh_exe is None:
         sys.exit('error: cannot find `gh` executable; please specify a path with `--gh`.')
 
-    git_exe = shutil.which('git')
-    if git_exe is None:
-        sys.exit('error: cannot find `git` executable; please specify a path with `--git`.')
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--gh', metavar='path', default=gh_exe, help='path to the gh executable.')
-    parser.add_argument('--git', metavar='path', default=git_exe, help='path to the git executable.')
+    parser.add_argument('--git', metavar='path', help='path to the git executable. [DEPRECATED]')
     parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
@@ -342,20 +337,23 @@ def main():
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
-    parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
+    parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_enable.set_defaults(func=do_enable)
 
     parser_alerts = subparsers.add_parser('alerts', help='download code-scanning alerts.')
-    parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
+    parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_alerts.set_defaults(func=do_alerts)
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
     parser_analyses.add_argument('-d', '--delete', action='store_true')
     parser_analyses.add_argument('-r', '--ref')
-    parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
+    parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_analyses.set_defaults(func=do_analyses)
 
     args = parser.parse_args()
+    if args.git:
+        print('warning: option --git is no longer required; it will be unsupported in a future release.')
+
     args.func(args)
 
 if __name__ == '__main__':
