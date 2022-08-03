@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import json
 import os
 import random
@@ -8,7 +9,6 @@ import shutil
 import string
 import subprocess
 import sys
-import tempfile
 import collections
 
 def json_multiloads(json_string, spool=[]):
@@ -24,9 +24,8 @@ def json_multiloads(json_string, spool=[]):
     return spool
 
 class GithubRepository(object):
-    def __init__(self, nwo, gh_exe, git_exe):
+    def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
-        self.git_exe = git_exe
         self._default_branch = None
         try:
             self.owner, self.repository = nwo.split('/')
@@ -218,58 +217,90 @@ def do_enable(args):
         workflow_template = string.Template(f.read())
 
     for repo in args.repos:
-        os.chdir('/')
-
         supported_langs = list(filter(None, map(normalize_lang, repo.languages)))
         if len(supported_langs) == 0:
             sys.stderr.write('error: %s: no supported programming languages.\n' % repo)
             continue
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            subprocess.run([args.gh, 'repo', 'clone', str(repo), temp_dir, '--', '--depth=1'], stdout=output, stderr=output)
+        workflow_contents = workflow_template.safe_substitute(
+            DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
+            SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
+            MATRIX_LANGUAGE_EXPR=repr(supported_langs)
+        )
 
-            os.chdir(temp_dir)
+        create_file_payload = {
+            'message': 'Create %s' % workflow_name,
+            'content': base64.b64encode(workflow_contents.encode('utf-8')).decode('utf-8'),
+            'branch' : repo.default_branch if args.git_push else branch_name
+        }
 
-            if os.path.exists(workflow_dstpath) and not args.force:
-                sys.stderr.write('error: %s: workflow "%s" already exists.\n' % (repo, workflow_name))
-                continue
-
-            if not args.git_push:
-                subprocess.run([args.git, 'checkout', '-b', branch_name], stdout=output, stderr=output)
-
-            workflow_contents = workflow_template.safe_substitute(
-                DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
-                SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
-                MATRIX_LANGUAGE_EXPR=repr(supported_langs)
+        if not args.git_push:
+            p = subprocess.run(
+                [
+                    args.gh,
+                    'api',
+                    '/repos/%s/commits/%s' % (repo, 'heads/' + repo.default_branch),
+                    '--header=Accept: application/vnd.github.sha',
+                ],
+                stdout=subprocess.PIPE,
+                stderr=output,
             )
-
-            os.makedirs(workflow_dstdir, exist_ok=True)
-            with open(workflow_dstpath, 'w') as f:
-                f.write(workflow_contents)
-
-            subprocess.run([args.git, 'add', '--all'], stdout=output, stderr=output)
-            subprocess.run([args.git, 'commit', '--message', args.message], stdout=output, stderr=output)
-
-            if args.git_push:
-                subprocess.run([args.git, 'push', 'origin', repo.default_branch], stdout=output, stderr=output)
-            else:
-                subprocess.run([args.git, 'push', '--set-upstream', 'origin', branch_name], stdout=output, stderr=output)
-                subprocess.run([args.gh, 'pr', 'create', '--fill', '--repo', str(repo), '--head', branch_name], stdout=output, stderr=output)
-
-            # Enable GitHub Advanced Security on the repository.
             subprocess.run(
                 [
                     args.gh,
                     'api',
-                    '/repos/%s' % repo,
-                    '--method=PATCH',
-                    '--input=-',
+                    '/repos/%s/git/refs' % repo,
+                    '--method=POST',
+                    '--raw-field=ref=refs/heads/%s' % branch_name,
+                    '--raw-field=sha=%s' % p.stdout.strip().decode('utf-8'),
                 ],
-                input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
-                text=True,
                 stdout=output,
                 stderr=output,
             )
+
+        subprocess.run(
+            [
+                args.gh,
+                'api',
+                '/repos/%s/contents/%s' % (repo, workflow_dstpath),
+                '--method=PUT',
+                '--input=-',
+            ],
+            input=json.dumps(create_file_payload),
+            text=True,
+            stdout=output,
+            stderr=output,
+        )
+
+        if not args.git_push:
+            subprocess.run(
+                [
+                    args.gh,
+                    'api',
+                    '/repos/%s/pulls' % repo,
+                    '--method=POST',
+                    '--raw-field=title=Create %s workflow file' % workflow_name,
+                    '--raw-field=head=%s' % branch_name,
+                    '--raw-field=base=%s' % repo.default_branch,
+                ],
+                stdout=output,
+                stderr=output,
+            )
+
+        # Enable GitHub Advanced Security on the repository.
+        subprocess.run(
+            [
+                args.gh,
+                'api',
+                '/repos/%s' % repo,
+                '--method=PATCH',
+                '--input=-',
+            ],
+            input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
+            text=True,
+            stdout=output,
+            stderr=output,
+        )
 
 def do_alerts(args):
     for repo in args.repos:
@@ -327,13 +358,9 @@ def main():
     if gh_exe is None:
         sys.exit('error: cannot find `gh` executable; please specify a path with `--gh`.')
 
-    git_exe = shutil.which('git')
-    if git_exe is None:
-        sys.exit('error: cannot find `git` executable; please specify a path with `--git`.')
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--gh', metavar='path', default=gh_exe, help='path to the gh executable.')
-    parser.add_argument('--git', metavar='path', default=git_exe, help='path to the git executable.')
+    parser.add_argument('--git', metavar='path', help='path to the git executable. [DEPRECATED]')
     parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
@@ -342,20 +369,23 @@ def main():
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
-    parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
+    parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_enable.set_defaults(func=do_enable)
 
     parser_alerts = subparsers.add_parser('alerts', help='download code-scanning alerts.')
-    parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
+    parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_alerts.set_defaults(func=do_alerts)
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
     parser_analyses.add_argument('-d', '--delete', action='store_true')
     parser_analyses.add_argument('-r', '--ref')
-    parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe, git_exe=git_exe))
+    parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_analyses.set_defaults(func=do_analyses)
 
     args = parser.parse_args()
+    if args.git:
+        print('warning: option --git is no longer required; it will be unsupported in a future release.')
+
     args.func(args)
 
 if __name__ == '__main__':

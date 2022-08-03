@@ -5,19 +5,11 @@ A GitHub CLI extension for GitHub Code-Scanning!
 ### Dependencies
 
 - [`gh`](https://cli.github.com/)
-- `git`
 - Python (version 3.5 or higher)
 
 ### Installation
 
 ```shell
-# Disable gh's "interactive" mode, since gh-code-scanning is designed to be used in scripts.
-gh config set prompt disabled
-
-# Configure gh to use SSH instead of HTTPS for git operations. This is required.
-gh config set git_protocol ssh
-
-# Install the extension.
 gh extension install https://github.com/mario-campos/gh-code-scanning
 ```
 
