@@ -4,7 +4,6 @@ A GitHub CLI extension for GitHub Code-Scanning!
 
 ### Dependencies
 
-- [`gh`](https://cli.github.com/)
 - Python (version 3.5 or higher)
 
 ### Installation
