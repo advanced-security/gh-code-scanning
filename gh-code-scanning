@@ -218,7 +218,7 @@ def do_enable(args):
         )
 
     output = None if args.verbose else subprocess.DEVNULL
-    branch_name = 'codeql-analysis'
+    branch_name = 'gh-code-scanning/codeql-analysis'
     workflow_name = 'codeql-analysis.yml'
     workflow_dstdir = '.github/workflows'
     workflow_srcpath = os.path.join(os.path.dirname(__file__), workflow_name)
