@@ -10,6 +10,7 @@ import string
 import subprocess
 import sys
 import collections
+import logging
 
 def json_multiloads(json_string, spool=[]):
     """
@@ -230,7 +231,7 @@ def do_enable(args):
     for repo in args.repos:
         supported_langs = list(filter(None, map(normalize_lang, repo.languages)))
         if len(supported_langs) == 0:
-            sys.stderr.write('error: %s: no supported programming languages.\n' % repo)
+            logging.error('%s: no supported programming languages', repo)
             continue
 
         workflow_contents = workflow_template.safe_substitute(
@@ -256,20 +257,28 @@ def do_enable(args):
                 stdout=subprocess.PIPE,
                 stderr=output,
             )
-            subprocess.run(
+            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
+
+            branch_sha1 = p.stdout.strip().decode('utf-8')
+            logging.debug('%s: branch=%s SHA-1=%s', repo, repo.default_branch, branch_sha1)
+
+            logging.info('%s: creating branch "%s"', repo, branch_name)
+            p = subprocess.run(
                 [
                     args.gh,
                     'api',
                     '/repos/%s/git/refs' % repo,
                     '--method=POST',
                     '--raw-field=ref=refs/heads/%s' % branch_name,
-                    '--raw-field=sha=%s' % p.stdout.strip().decode('utf-8'),
+                    '--raw-field=sha=%s' % branch_sha1,
                 ],
                 stdout=output,
                 stderr=output,
             )
+            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
 
-        subprocess.run(
+        logging.info('%s: creating workflow file "%s"', repo, workflow_dstpath)
+        p = subprocess.run(
             [
                 args.gh,
                 'api',
@@ -282,9 +291,11 @@ def do_enable(args):
             stdout=output,
             stderr=output,
         )
+        logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
 
         if not args.git_push:
-            subprocess.run(
+            logging.info('%s: creating Pull Request', repo)
+            p = subprocess.run(
                 [
                     args.gh,
                     'api',
@@ -297,9 +308,11 @@ def do_enable(args):
                 stdout=output,
                 stderr=output,
             )
+            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
 
         # Enable GitHub Advanced Security on the repository.
-        subprocess.run(
+        logging.info('%s: enabling GitHub Advanced Security', repo)
+        p = subprocess.run(
             [
                 args.gh,
                 'api',
@@ -312,6 +325,9 @@ def do_enable(args):
             stdout=output,
             stderr=output,
         )
+        logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
+
+        logging.info('%s: done', repo)
 
 def do_alerts(args):
     for repo in args.repos:
@@ -395,7 +411,12 @@ def main():
 
     args = parser.parse_args()
     if args.git:
-        print('warning: option --git is no longer required; it will be unsupported in a future release.')
+        logging.warning('option --git is deprecated; it will be unsupported in a future release.')
+
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)s\t%(message)s',
+        level=logging.DEBUG if args.verbose else logging.WARNING,
+    )
 
     args.func(args)
 
