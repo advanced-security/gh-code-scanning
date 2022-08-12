@@ -66,6 +66,45 @@ class GitHeadRef(object):
         logging.debug('%s: command=%s exit-status=%d', self.repository, p.args, p.returncode)
         return GitHeadRef(new_branch_name, self.repository)
 
+    def create_file(self, name, content):
+        """Create a file in this branch of the repository."""
+        logging.info('%s: creating workflow file "%s"', self.repository, name)
+        p = subprocess.run(
+            [
+                self.repository.gh_exe,
+                'api',
+                '/repos/%s/contents/%s' % (self.repository, name),
+                '--method=PUT',
+                '--input=-',
+            ],
+            input=json.dumps({
+                'message': 'Create %s' % name,
+                'content': base64.b64encode(content.encode('utf-8')).decode('utf-8'),
+                'branch' : self.name,
+            }),
+            text=True,
+            stdout=True,
+            stderr=True,
+        )
+        logging.debug('%s: command=%s exit-status=%d', self.repository, p.args, p.returncode)
+
+    def request_pull(self, title):
+        logging.info('%s: creating Pull Request', self.repository)
+        p = subprocess.run(
+            [
+                self.repository.gh_exe,
+                'api',
+                '/repos/%s/pulls' % self.repository,
+                '--method=POST',
+                '--raw-field=title=%s' % title,
+                '--raw-field=head=%s' % self.name,
+                '--raw-field=base=%s' % self.repository.ref(),
+            ],
+            stdout=True,
+            stderr=True,
+        )
+        logging.debug('%s: command=%s exit-status=%d', self.repository, p.args, p.returncode)
+
 class GithubRepository(object):
     def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
@@ -282,7 +321,6 @@ def do_enable(args):
             random.randint(0, 6)   # day of week
         )
 
-    output = None if args.verbose else subprocess.DEVNULL
     branch_name = 'gh-code-scanning/codeql-analysis'
     workflow_name = os.path.basename(args.workflow)
     workflow_dstdir = '.github/workflows'
@@ -304,47 +342,11 @@ def do_enable(args):
             MATRIX_LANGUAGE_EXPR=repr(supported_langs)
         )
 
-        create_file_payload = {
-            'message': 'Create %s' % workflow_name,
-            'content': base64.b64encode(workflow_contents.encode('utf-8')).decode('utf-8'),
-            'branch' : repo.ref() if args.git_push else branch_name
-        }
+        branch = repo.ref() if args.git_push else repo.ref().branch(branch_name)
+        branch.create_file(workflow_dstpath, workflow_contents)
 
         if not args.git_push:
-            repo.ref().branch(branch_name)
-
-        logging.info('%s: creating workflow file "%s"', repo, workflow_dstpath)
-        p = subprocess.run(
-            [
-                args.gh,
-                'api',
-                '/repos/%s/contents/%s' % (repo, workflow_dstpath),
-                '--method=PUT',
-                '--input=-',
-            ],
-            input=json.dumps(create_file_payload),
-            text=True,
-            stdout=output,
-            stderr=output,
-        )
-        logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
-
-        if not args.git_push:
-            logging.info('%s: creating Pull Request', repo)
-            p = subprocess.run(
-                [
-                    args.gh,
-                    'api',
-                    '/repos/%s/pulls' % repo,
-                    '--method=POST',
-                    '--raw-field=title=Create %s workflow file' % workflow_name,
-                    '--raw-field=head=%s' % branch_name,
-                    '--raw-field=base=%s' % repo.ref(),
-                ],
-                stdout=output,
-                stderr=output,
-            )
-            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
+            branch.request_pull(args.message)
 
         repo.enable_advanced_security()
         logging.info('%s: done', repo)
