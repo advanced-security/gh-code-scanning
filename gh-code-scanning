@@ -12,6 +12,8 @@ import sys
 import collections
 import logging
 
+logging.basicConfig(format='%(asctime)s {} %(levelname)s %(message)s'.format(os.getpid()), level=logging.DEBUG)
+
 def json_multiloads(json_string, spool=[]):
     """
     json_multiloads decodes multiple JSON documents that have been concatenated together, as `gh api --paginate` does.
@@ -424,11 +426,6 @@ def main():
     args = parser.parse_args()
     if args.git:
         logging.warning('option --git is deprecated; it will be unsupported in a future release.')
-
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)s\t%(message)s',
-        level=logging.DEBUG if args.verbose else logging.WARNING,
-    )
 
     args.func(args)
 
