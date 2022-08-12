@@ -137,7 +137,7 @@ class GithubRepository(object):
     @property
     def languages(self):
         try:
-            cmd = subprocess.run([self.gh_exe, 'api', 'repos/%s/languages' % self], capture_output=True, check=True)
+            cmd = subprocess.run([self.gh_exe, 'api', 'repos/%s/languages' % self.name_with_owner], capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('utf-8').strip()
             sys.stderr.write(message)
@@ -146,7 +146,7 @@ class GithubRepository(object):
         return json.loads(cmd.stdout)
 
     def analyses(self, ref=None):
-        command = [ self.gh_exe, 'api', 'repos/%s/code-scanning/analyses' % self, '--paginate', '--method=GET' ]
+        command = [ self.gh_exe, 'api', 'repos/%s/code-scanning/analyses' % self.name_with_owner, '--paginate', '--method=GET' ]
 
         if ref is not None:
             command.append('--raw-field=ref=%s' % ref)
@@ -163,7 +163,7 @@ class GithubRepository(object):
 
     def alerts(self):
         try:
-            cmd = subprocess.run([self.gh_exe, 'api', '--paginate', 'repos/%s/code-scanning/alerts' % self], capture_output=True, check=True)
+            cmd = subprocess.run([self.gh_exe, 'api', '--paginate', 'repos/%s/code-scanning/alerts' % self.name_with_owner], capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             message = e.stderr.decode('utf-8').strip()
             sys.stderr.write(message)
@@ -174,12 +174,12 @@ class GithubRepository(object):
 
     def enable_advanced_security(self):
         """Enable GitHub Advanced Security on a repository using the GitHub API."""
-        logging.info('%s: Enabling GitHub Advanced Security.', self)
+        logging.info('%s: Enabling GitHub Advanced Security.', self.name_with_owner)
         p = subprocess.run(
             [
                 self.gh_exe,
                 'api',
-                '/repos/%s' % self,
+                '/repos/%s' % self.name_with_owner,
                 '--method=PATCH',
                 '--input=-',
             ],
@@ -188,7 +188,7 @@ class GithubRepository(object):
             stdout=True,
             stderr=True,
         )
-        logging.debug('%s: command=%s exit-status=%d', self, p.args, p.returncode)
+        logging.debug('%s: command=%s exit-status=%d', self.name_with_owner, p.args, p.returncode)
 
     def ref(self, name=None):
         """Returns a GitHeadRef object corresponding to the git branch of the repository, if one exists."""
