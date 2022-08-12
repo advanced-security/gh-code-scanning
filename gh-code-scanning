@@ -24,6 +24,30 @@ def json_multiloads(json_string, spool=[]):
         json_multiloads(json_string[e.pos:], spool)
     return spool
 
+class GitBranch(object):
+    def __init__(self, name, repository):
+        self.name = name
+        self.repository = repository
+
+    def __str__(self):
+        return self.name
+
+    def head(self):
+        """Returns the SHA-1 commit ID of the HEAD."""
+        logging.info('%s: Retrieving the HEAD SHA-1 commit ID of the branch "%s"', self.repository, self.name)
+        p = subprocess.run(
+            [
+                self.repository.gh_exe,
+                'api',
+                '/repos/%s/commits/%s' % (self.repository, 'heads/' + self.name),
+                '--header=Accept: application/vnd.github.sha',
+            ],
+            stdout=subprocess.PIPE,
+            stderr=True,
+        )
+        logging.debug('%s: command=%s exit-status=%d', self.repository, p.args, p.returncode)
+        return p.stdout.decode('utf-8').strip()
+
 class GithubRepository(object):
     def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
@@ -118,6 +142,10 @@ class GithubRepository(object):
             stderr=True,
         )
         logging.debug('%s: command=%s exit-status=%d', self, p.args, p.returncode)
+
+    def branch(self, name=None):
+        """Returns a GitBranch object corresponding to the git branch of the repository, if one exists."""
+        return GitBranch(name if name is not None else self.default_branch, self)
 
 class CodeScanningAnalysis(object):
     def __init__(self, repository, analysis_id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
@@ -253,7 +281,7 @@ def do_enable(args):
             continue
 
         workflow_contents = workflow_template.safe_substitute(
-            DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
+            DEFAULT_BRANCH_EXPR=repr(repo.branch().name),
             SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
             MATRIX_LANGUAGE_EXPR=repr(supported_langs)
         )
@@ -261,24 +289,12 @@ def do_enable(args):
         create_file_payload = {
             'message': 'Create %s' % workflow_name,
             'content': base64.b64encode(workflow_contents.encode('utf-8')).decode('utf-8'),
-            'branch' : repo.default_branch if args.git_push else branch_name
+            'branch' : repo.branch() if args.git_push else branch_name
         }
 
         if not args.git_push:
-            p = subprocess.run(
-                [
-                    args.gh,
-                    'api',
-                    '/repos/%s/commits/%s' % (repo, 'heads/' + repo.default_branch),
-                    '--header=Accept: application/vnd.github.sha',
-                ],
-                stdout=subprocess.PIPE,
-                stderr=output,
-            )
-            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
-
-            branch_sha1 = p.stdout.strip().decode('utf-8')
-            logging.debug('%s: branch=%s SHA-1=%s', repo, repo.default_branch, branch_sha1)
+            branch_sha1 = repo.branch().head()
+            logging.debug('%s: branch=%s SHA-1=%s', repo, repo.branch(), branch_sha1)
 
             logging.info('%s: creating branch "%s"', repo, branch_name)
             p = subprocess.run(
@@ -321,7 +337,7 @@ def do_enable(args):
                     '--method=POST',
                     '--raw-field=title=Create %s workflow file' % workflow_name,
                     '--raw-field=head=%s' % branch_name,
-                    '--raw-field=base=%s' % repo.default_branch,
+                    '--raw-field=base=%s' % repo.branch(),
                 ],
                 stdout=output,
                 stderr=output,
