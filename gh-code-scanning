@@ -101,6 +101,24 @@ class GithubRepository(object):
         for alert_object in json_multiloads(cmd.stdout):
             yield CodeScanningAlert(alert_object)
 
+    def enable_advanced_security(self):
+        """Enable GitHub Advanced Security on a repository using the GitHub API."""
+        logging.info('%s: Enabling GitHub Advanced Security.', self)
+        p = subprocess.run(
+            [
+                self.gh_exe,
+                'api',
+                '/repos/%s' % self,
+                '--method=PATCH',
+                '--input=-',
+            ],
+            input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
+            text=True,
+            stdout=True,
+            stderr=True,
+        )
+        logging.debug('%s: command=%s exit-status=%d', self, p.args, p.returncode)
+
 class CodeScanningAnalysis(object):
     def __init__(self, repository, analysis_id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
@@ -310,23 +328,7 @@ def do_enable(args):
             )
             logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
 
-        # Enable GitHub Advanced Security on the repository.
-        logging.info('%s: enabling GitHub Advanced Security', repo)
-        p = subprocess.run(
-            [
-                args.gh,
-                'api',
-                '/repos/%s' % repo,
-                '--method=PATCH',
-                '--input=-',
-            ],
-            input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
-            text=True,
-            stdout=output,
-            stderr=output,
-        )
-        logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
-
+        repo.enable_advanced_security()
         logging.info('%s: done', repo)
 
 def do_alerts(args):
