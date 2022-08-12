@@ -396,7 +396,7 @@ def main():
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
-    parser_enable.add_argument('-w', '--workflow', default=os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml'), help='specify a custom CodeQL workflow file')
+    parser_enable.add_argument('-w', '--workflow', default=os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml'), metavar='WORKFLOW_FILE_PATH', help='specify a custom CodeQL workflow file')
     parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_enable.set_defaults(func=do_enable)
 
