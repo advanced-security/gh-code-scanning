@@ -107,13 +107,15 @@ class GitHeadRef(object):
 
 class GithubRepository(object):
     def __init__(self, nwo, gh_exe):
-        self.gh_exe = gh_exe
-        self._default_branch = None
         try:
-            self.owner, self.repository = nwo.split('/')
-        except ValueError:
-            sys.stderr.write('error: argument "%s" must be in the "name with owner" format (owner/repository).\n' % nwo)
+            p = subprocess.run([gh_exe, 'api', 'repos/%s' % nwo], capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message = e.stderr.decode('utf-8').strip()
+            sys.stderr.write(message)
             sys.exit(1)
+
+        self._object = json.loads(p.stdout)
+        self.gh_exe = gh_exe
 
     @classmethod
     def with_kwargs(cls, **kwargs):
@@ -126,23 +128,11 @@ class GithubRepository(object):
         return lambda nwo: cls(nwo, **kwargs)
 
     def __str__(self):
-        return self.owner + '/' + self.repository
+        return self.name_with_owner
 
     @property
-    def default_branch(self):
-        if self._default_branch is not None:
-            return self._default_branch
-
-        try:
-            cmd = subprocess.run([self.gh_exe, 'api', 'repos/%s' % self], capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('utf-8').strip()
-            sys.stderr.write(message)
-            sys.exit(1)
-
-        # Let's memoize this, because the default branch is unlikely to change while executing.
-        self._default_branch = json.loads(cmd.stdout)['default_branch']
-        return self._default_branch
+    def name_with_owner(self):
+        return self._object['full_name']
 
     @property
     def languages(self):
@@ -202,7 +192,7 @@ class GithubRepository(object):
 
     def ref(self, name=None):
         """Returns a GitHeadRef object corresponding to the git branch of the repository, if one exists."""
-        return GitHeadRef(name if name is not None else self.default_branch, self)
+        return GitHeadRef(name if name is not None else self._object['default_branch'], self)
 
 class CodeScanningAnalysis(object):
     def __init__(self, repository, analysis_id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
