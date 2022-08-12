@@ -220,9 +220,9 @@ def do_enable(args):
 
     output = None if args.verbose else subprocess.DEVNULL
     branch_name = 'gh-code-scanning/codeql-analysis'
-    workflow_name = 'codeql-analysis.yml'
+    workflow_name = os.path.basename(args.workflow)
     workflow_dstdir = '.github/workflows'
-    workflow_srcpath = os.path.join(os.path.dirname(__file__), workflow_name)
+    workflow_srcpath = os.path.abspath(args.workflow)
     workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
 
     with open(workflow_srcpath) as f:
@@ -396,6 +396,7 @@ def main():
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
+    parser_enable.add_argument('-w', '--workflow', default=os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml'), help='specify a custom CodeQL workflow file')
     parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_enable.set_defaults(func=do_enable)
 
