@@ -312,14 +312,13 @@ def do_enable(args):
             return 'ruby'
         return None
 
-    def generate_random_weekly_cron():
-        return '{} {} {} {} {}'.format(
-            random.randint(0, 59), # minute
-            random.randint(0, 23), # hour
-            '*',                   # day of month
-            '*',                   # month
-            random.randint(0, 6)   # day of week
-        )
+    random_weekly_cron = '{} {} {} {} {}'.format(
+        random.randint(0, 59), # minute
+        random.randint(0, 23), # hour
+        '*',                   # day of month
+        '*',                   # month
+        random.randint(0, 6)   # day of week
+    )
 
     branch_name = 'gh-code-scanning/codeql-analysis'
     workflow_name = os.path.basename(args.workflow)
@@ -338,7 +337,7 @@ def do_enable(args):
 
         workflow_contents = workflow_template.safe_substitute(
             DEFAULT_BRANCH_EXPR=repr(repo.ref().name),
-            SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
+            SCHEDULE_CRON_EXPR=repr(random_weekly_cron),
             MATRIX_LANGUAGE_EXPR=repr(supported_langs)
         )
 
