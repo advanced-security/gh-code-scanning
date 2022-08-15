@@ -14,14 +14,12 @@ gh extension install https://github.com/mario-campos/gh-code-scanning
 
 ### Usage
 
-
-
 #### Enable
 
 Use the `enable` subcommand to "deploy" GitHub Code Scanning with CodeQL, by 1) enabling GitHub Advanced Security and 2) adding a GitHub Actions workflow file to the given repository.
 
 ```
-usage: gh code-scanning enable [-h] [-f] [--git-push] [-m MESSAGE] repos [repos ...]
+usage: gh code-scanning enable [-h] [-f] [--git-push] [-m MESSAGE] [-w WORKFLOW_FILE_PATH] repos [repos ...]
 
 positional arguments:
   repos
@@ -32,6 +30,8 @@ optional arguments:
   --git-push            do not create PR; push commit to HEAD of default branch.
   -m MESSAGE, --message MESSAGE
                         specify the pull-request/commit message.
+  -w WORKFLOW, --workflow WORKFLOW_FILE_PATH
+                        specify a custom CodeQL workflow file
 ```
 
 In its most simplest form, gh-code-scanning can setup GitHub Code Scanning with CodeQL on a single repository:
@@ -57,6 +57,25 @@ gh repo list foo \
   select(.languages | any(. == "JavaScript" or . == "TypeScript" or . == "Python" or . == "Go" or . == "Ruby")) |
   .nameWithOwner' \
 | xargs gh code-scanning enable
+```
+
+**Specifying a custom workflow file**
+
+When using a custom workflow file, some parts of the file are required to look a certain way for the `enable` command to function. In short, variables prefixed with `$` should not be changed. Refer to the [`codeql-analysis.yml`](./codeql-analysis.yml) file in this repository for a complete reference. 
+
+```yml
+on:
+  push:
+    branches: $DEFAULT_BRANCH_EXPR
+  pull_request:
+    branches: $DEFAULT_BRANCH_EXPR
+  schedule:
+    - cron: $SCHEDULE_CRON_EXPR
+# ...
+    strategy:
+      fail-fast: false
+      matrix:
+        language: $MATRIX_LANGUAGE_EXPR
 ```
 
 #### Alerts
