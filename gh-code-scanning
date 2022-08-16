@@ -3,7 +3,9 @@
 import argparse
 import base64
 import json
+import io
 import os
+import re
 import random
 import shutil
 import string
@@ -82,6 +84,12 @@ class GitHeadRef(object):
         )
 
 class GithubRepository(object):
+    # This regular expression captures the relevant bits from `gh api --include`. In particular:
+    #   [0] HTTP Status Code ("200")
+    #   [1] HTTP response headers
+    #   [2] HTTP response body
+    _gh_api_regex = re.compile('HTTP/\d\.\d (\d+) (?:\w[\w\s]+)\n(.+?)\n\n([^\n]+)\n?', re.DOTALL)
+
     def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
         self._object = self.api('repos/%s' % nwo)
@@ -108,7 +116,7 @@ class GithubRepository(object):
         return self.api('repos/%s/languages' % self.name_with_owner)
 
     def api(self, endpoint, method='GET', body=None, headers=None, params=None, raw_output=False):
-        command = [ self.gh_exe, 'api', '--method=%s' % method ]
+        command = [ self.gh_exe, 'api', '--include', '--method=%s' % method ]
 
         if method == 'GET':
             command.append('--paginate')
@@ -130,15 +138,23 @@ class GithubRepository(object):
             print(e)
             sys.exit(1)
 
+        buffer = io.StringIO()
+        # The output from `gh api --paginate --include` is a concatenation of individual `gh api --include`
+        # commands. Each one will have an HTTP line, headers, and a body to parse. So, we will use regular
+        # expressions to find each response in the output and handle them individually.
+        for match in self._gh_api_regex.finditer(p.stdout):
+            buffer.write(match.group(3))
+        buffer.seek(0)
+
         if body is None:
             logging.debug('command=%s exit-status=%d', p.args, p.returncode)
         else:
             logging.debug('command=%s exit-status=%d stdin=`%s`', p.args, p.returncode, body)
 
         if raw_output:
-            return p.stdout
+            return buffer.read()
         else:
-            return json.loads(p.stdout)
+            return json.load(buffer)
 
     def analyses(self, ref=None):
         if ref is None:
