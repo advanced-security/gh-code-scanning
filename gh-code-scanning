@@ -28,6 +28,18 @@ def json_multiloads(json_string, spool=[]):
         json_multiloads(json_string[e.pos:], spool)
     return spool
 
+class GithubError(Exception):
+    def __init__(self, command, command_exit_code, command_stdout, command_stderr, http_status, http_headers):
+        self.command = command
+        self.command_exit_code = command_exit_code
+        self.command_stdout = command_stdout
+        self.command_stderr = command_stderr
+        self.http_status = http_status
+        self.http_headers = http_headers
+
+    def __str__(self):
+        return self.command_stderr.strip()
+
 class GitHeadRef(object):
     def __init__(self, name, repository):
         self.name = name
@@ -85,9 +97,9 @@ class GitHeadRef(object):
 
 class GithubRepository(object):
     # This regular expression captures the relevant bits from `gh api --include`. In particular:
-    #   [0] HTTP Status Code ("200")
-    #   [1] HTTP response headers
-    #   [2] HTTP response body
+    #   .group(1) = HTTP Status Code ("200")
+    #   .group(2) = HTTP response headers
+    #   .group(3) = HTTP response body
     _gh_api_regex = re.compile('HTTP/\d\.\d (\d+) (?:\w[\w\s]+)\n(.+?)\n\n([^\n]+)\n?', re.DOTALL)
 
     def __init__(self, nwo, gh_exe):
@@ -133,10 +145,15 @@ class GithubRepository(object):
         try:
             p = subprocess.run(command + [endpoint], input=body, text=True, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
-            logging.error(e.stderr.strip())
-            print(e.stdout)
-            print(e)
-            sys.exit(1)
+            match = self._gh_api_regex.match(e.stdout)
+            raise GithubError(
+                command=e.cmd,
+                command_exit_code=e.returncode,
+                command_stdout=e.stdout,
+                command_stderr=e.stderr,
+                http_status=int(match.group(1)),
+                http_headers=match.group(2),
+            ) from e
 
         buffer = io.StringIO()
         # The output from `gh api --paginate --include` is a concatenation of individual `gh api --include`
@@ -329,13 +346,37 @@ def do_enable(args):
             MATRIX_LANGUAGE_EXPR=repr(supported_langs)
         )
 
-        branch = repo.ref() if args.git_push else repo.ref().branch(branch_name)
-        branch.create_file(workflow_dstpath, workflow_contents)
+        if args.git_push:
+            branch = repo.ref()
+        else:
+            branch = None
+            try:
+                branch = repo.ref().branch(branch_name)
+            except GithubError as e:
+                logging.error('%s: cannot create branch "%s": %s', repo, branch_name, e)
+                continue
+
+        try:
+            branch.create_file(workflow_dstpath, workflow_contents)
+        except GithubError as e:
+            # TODO: if not args.git_push: branch.delete()
+            logging.error('%s: file "%s" already exists', repo, workflow_dstpath)
+            continue
 
         if not args.git_push:
-            branch.request_pull(args.message)
+            try:
+                branch.request_pull(args.message)
+            except GithubError as e:
+                # TODO: if not args.git_push: branch.delete()
+                logging.error('%s: cannot create pull request: %s', repo, e)
+                continue
 
-        repo.enable_advanced_security()
+        try:
+            repo.enable_advanced_security()
+        except GithubError as e:
+            logging.warning('%s: cannot enable GitHub Advanced Security: %s', repo, e)
+            continue
+
         logging.info('%s: done', repo)
 
 def do_alerts(args):
