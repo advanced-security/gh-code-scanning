@@ -331,9 +331,9 @@ def do_enable(args):
             continue
 
         workflow_contents = workflow_template.safe_substitute(
-            DEFAULT_BRANCH_EXPR=repo.ref().name,
-            SCHEDULE_CRON_EXPR=repr(random_weekly_cron),
-            MATRIX_LANGUAGE_EXPR=repr(supported_langs)
+            GH_CS_DEFAULT_BRANCH_EXPR=repo.ref().name,
+            GH_CS_SCHEDULE_CRON_EXPR=repr(random_weekly_cron),
+            GH_CS_MATRIX_LANGUAGE_EXPR=repr(supported_langs)
         )
 
         if args.git_push:

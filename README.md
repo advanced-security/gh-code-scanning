@@ -66,16 +66,16 @@ When using a custom workflow file, some parts of the file are required to look a
 ```yml
 on:
   push:
-    branches: $DEFAULT_BRANCH_EXPR
+    branches: $GH_CS_DEFAULT_BRANCH_EXPR
   pull_request:
-    branches: $DEFAULT_BRANCH_EXPR
+    branches: $GH_CS_DEFAULT_BRANCH_EXPR
   schedule:
-    - cron: $SCHEDULE_CRON_EXPR
+    - cron: $GH_CS_SCHEDULE_CRON_EXPR
 # ...
     strategy:
       fail-fast: false
       matrix:
-        language: $MATRIX_LANGUAGE_EXPR
+        language: $GH_CS_MATRIX_LANGUAGE_EXPR
 ```
 
 #### Alerts

@@ -2,11 +2,11 @@ name: "CodeQL"
 
 on:
   push:
-    branches: $DEFAULT_BRANCH_EXPR
+    branches: $GH_CS_DEFAULT_BRANCH_EXPR
   pull_request:
-    branches: $DEFAULT_BRANCH_EXPR
+    branches: $GH_CS_DEFAULT_BRANCH_EXPR
   schedule:
-    - cron: $SCHEDULE_CRON_EXPR
+    - cron: $GH_CS_SCHEDULE_CRON_EXPR
 
 jobs:
   analyze:
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: $MATRIX_LANGUAGE_EXPR
+        language: $GH_CS_MATRIX_LANGUAGE_EXPR
 
     steps:
     - name: Checkout repository
