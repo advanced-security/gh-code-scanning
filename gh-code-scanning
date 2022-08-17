@@ -63,10 +63,7 @@ class GitHeadRef(object):
         self.repository.api(
             'repos/%s/git/refs' % self.repository,
             method='POST',
-            body=json.dumps({
-                'ref': 'refs/heads/%s' % new_branch_name,
-                'sha': self.head(),
-            }),
+            params={'ref': 'refs/heads/%s' % new_branch_name, 'sha': self.head()},
         )
         return GitHeadRef(new_branch_name, self.repository)
 
@@ -76,11 +73,11 @@ class GitHeadRef(object):
         self.repository.api(
             'repos/%s/contents/%s' % (self.repository, name),
             method='PUT',
-            body=json.dumps({
+            params={
                 'message': 'Create %s' % name,
                 'content': base64.b64encode(content.encode('utf-8')).decode('utf-8'),
                 'branch' : self.name,
-            }),
+            },
         )
 
     def request_pull(self, title):
@@ -88,11 +85,7 @@ class GitHeadRef(object):
         self.repository.api(
             'repos/%s/pulls' % self.repository,
             method='POST',
-            body=json.dumps({
-                'title': title,
-                'head' : self.name,
-                'base' : self.repository.ref().name,
-            }),
+            params={'title': title, 'head' : self.name, 'base' : self.repository.ref().name},
         )
 
 class GithubRepository(object):
@@ -127,23 +120,23 @@ class GithubRepository(object):
     def languages(self):
         return self.api('repos/%s/languages' % self.name_with_owner)
 
-    def api(self, endpoint, method='GET', body=None, headers=None, params=None, raw_output=False):
+    def api(self, endpoint, method='GET', headers=None, params=None, raw_output=False):
         command = [ self.gh_exe, 'api', '--include', '--method=%s' % method ]
 
         if method == 'GET':
             command.append('--paginate')
 
-        if body is not None:
-            command.append('--input=-')
-
         if headers is not None:
             command.extend('--header={}:{}'.format(h, headers[h]) for h in headers)
 
-        if params is not None:
+        if isinstance(params, str):
+            command.append('--input=-')
+        elif isinstance(params, dict):
             command.extend('--field={}={}'.format(p, params[p]) for p in params)
+            params = None
 
         try:
-            p = subprocess.run(command + [endpoint], input=body, text=True, capture_output=True, check=True)
+            p = subprocess.run(command + [endpoint], input=params, text=True, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
             match = self._gh_api_regex.match(e.stdout)
             raise GithubError(
@@ -163,10 +156,7 @@ class GithubRepository(object):
             buffer.write(match.group(3))
         buffer.seek(0)
 
-        if body is None:
-            logging.debug('command=%s exit-status=%d', p.args, p.returncode)
-        else:
-            logging.debug('command=%s exit-status=%d stdin=`%s`', p.args, p.returncode, body)
+        logging.debug('command=%s exit-status=%d', p.args, p.returncode)
 
         if raw_output:
             return buffer.read()
@@ -202,7 +192,7 @@ class GithubRepository(object):
         self.api(
             'repos/%s' % self.name_with_owner,
             method='PATCH',
-            body='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
+            params='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
         )
 
     def ref(self, name=None):
