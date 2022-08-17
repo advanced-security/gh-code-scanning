@@ -62,7 +62,7 @@ class GitHeadRef(object):
         """Create a file in this branch of the repository."""
         logging.info('%s: creating workflow file "%s"', self.repository, name)
         self.repository.api(
-            '/repos/%s/contents/%s' % (self.repository, name),
+            'repos/%s/contents/%s' % (self.repository, name),
             method='PUT',
             body=json.dumps({
                 'message': 'Create %s' % name,
@@ -74,7 +74,7 @@ class GitHeadRef(object):
     def request_pull(self, title):
         logging.info('%s: creating Pull Request', self.repository)
         self.repository.api(
-            '/repos/%s/pulls' % self.repository,
+            'repos/%s/pulls' % self.repository,
             method='POST',
             body=json.dumps({
                 'title': title,
@@ -183,7 +183,7 @@ class GithubRepository(object):
             return
 
         self.api(
-            '/repos/%s' % self.name_with_owner,
+            'repos/%s' % self.name_with_owner,
             method='PATCH',
             body='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
         )
