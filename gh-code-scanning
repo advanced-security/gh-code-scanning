@@ -331,7 +331,7 @@ def do_enable(args):
             continue
 
         workflow_contents = workflow_template.safe_substitute(
-            DEFAULT_BRANCH_EXPR=repr(repo.ref().name),
+            DEFAULT_BRANCH_EXPR=repo.ref().name,
             SCHEDULE_CRON_EXPR=repr(random_weekly_cron),
             MATRIX_LANGUAGE_EXPR=repr(supported_langs)
         )
