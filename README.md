@@ -43,13 +43,14 @@ gh code-scanning enable owner/repo
 However, with the use of `xargs`, we can automate this process for every repository in an organization. For example, the following command will enable all repositories in the organization _foo_:
 
 ```shell
-gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-scanning enable
+gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' --limit 1000 | xargs gh code-scanning enable
 ```
 
 We can take this one step further even, by applying some `jq` magic to limit our "deployments" to only some repositories. For example, if you only wanted to enable GitHub Code Scanning with CodeQL on all repositories in the organization _foo_ that have CodeQL "interpreted" languages (`javascript`, `python`, `go`, `ruby`) and none of the CodeQL "compiled" languages (`java`, `csharp`, `cpp`), run the following command:
 
 ```shell
 gh repo list foo \
+  --limit 1000 \
   --json nameWithOwner,languages \
   --jq '
   .[] | (.languages) = [.languages[].node.name] |
