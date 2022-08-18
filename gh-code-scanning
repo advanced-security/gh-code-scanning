@@ -141,7 +141,7 @@ class GithubRepository(object):
                 p = subprocess.run(command + [endpoint], input=params, text=True, capture_output=True, check=True)
                 break
             except subprocess.CalledProcessError as e:
-                log.debug('command=%s exit-status=%d', e.cmd, e.returncode)
+                log.debug('command=%s exit-status=%d\n%s', e.cmd, e.returncode, e.stdout)
 
                 http_status, http_headers, http_body = self._gh_api_regex.findall(e.stdout)[0]
                 http_headers = { m[0]: m[1] for m in re.findall('([\w-]+):\s?(.+?)\r?\n', http_headers) }
@@ -174,7 +174,7 @@ class GithubRepository(object):
             buffer.write(match.group(3))
         buffer.seek(0)
 
-        log.debug('command=%s exit-status=%d', p.args, p.returncode)
+        log.debug('command=%s exit-status=%d\n%s', p.args, p.returncode, p.stdout)
 
         if raw_output:
             return buffer.read()
