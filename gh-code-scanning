@@ -15,7 +15,7 @@ import time
 import collections
 import logging
 
-logging.basicConfig(format='%(asctime)s {} %(levelname)s %(message)s'.format(os.getpid()), level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
 def json_multiloads(json_string, spool=[]):
     """
@@ -51,7 +51,7 @@ class GitHeadRef(object):
 
     def head(self):
         """Returns the SHA-1 commit ID of the HEAD."""
-        logging.info('%s: Retrieving the HEAD SHA-1 commit ID of the branch "%s"', self.repository, self.name)
+        log.info('%s: Retrieving the HEAD SHA-1 commit ID of the branch "%s"', self.repository, self.name)
         return self.repository.api(
             'repos/%s/commits/%s' % (self.repository, 'heads/' + self.name),
             headers={'Accept': 'application/vnd.github.sha'},
@@ -60,7 +60,7 @@ class GitHeadRef(object):
 
     def branch(self, new_branch_name):
         """Create a new branch from the HEAD of this branch."""
-        logging.info('%s: Creating branch "%s"', self.repository, new_branch_name)
+        log.info('%s: Creating branch "%s"', self.repository, new_branch_name)
         self.repository.api(
             'repos/%s/git/refs' % self.repository,
             method='POST',
@@ -70,7 +70,7 @@ class GitHeadRef(object):
 
     def create_file(self, name, content):
         """Create a file in this branch of the repository."""
-        logging.info('%s: creating workflow file "%s"', self.repository, name)
+        log.info('%s: creating workflow file "%s"', self.repository, name)
         self.repository.api(
             'repos/%s/contents/%s' % (self.repository, name),
             method='PUT',
@@ -82,7 +82,7 @@ class GitHeadRef(object):
         )
 
     def request_pull(self, title):
-        logging.info('%s: creating Pull Request', self.repository)
+        log.info('%s: creating Pull Request', self.repository)
         self.repository.api(
             'repos/%s/pulls' % self.repository,
             method='POST',
@@ -141,7 +141,7 @@ class GithubRepository(object):
                 p = subprocess.run(command + [endpoint], input=params, text=True, capture_output=True, check=True)
                 break
             except subprocess.CalledProcessError as e:
-                logging.debug('command=%s exit-status=%d', e.cmd, e.returncode)
+                log.debug('command=%s exit-status=%d', e.cmd, e.returncode)
 
                 http_status, http_headers, http_body = self._gh_api_regex.findall(e.stdout)[0]
                 http_headers = { m[0]: m[1] for m in re.findall('([\w-]+):\s?(.+?)\r?\n', http_headers) }
@@ -152,7 +152,7 @@ class GithubRepository(object):
                     if 'Retry-After' in http_headers:
                         seconds = http_headers['Retry-After']
 
-                    logging.warning('GitHub rate limit reached; sleeping for %d seconds.', seconds)
+                    log.warning('GitHub rate limit reached; sleeping for %d seconds.', seconds)
 
                     time.sleep(seconds)
                     continue
@@ -174,7 +174,7 @@ class GithubRepository(object):
             buffer.write(match.group(3))
         buffer.seek(0)
 
-        logging.debug('command=%s exit-status=%d', p.args, p.returncode)
+        log.debug('command=%s exit-status=%d', p.args, p.returncode)
 
         if raw_output:
             return buffer.read()
@@ -197,7 +197,7 @@ class GithubRepository(object):
             yield CodeScanningAlert(alert_object)
 
     def enable_advanced_security(self):
-        logging.info('%s: enabling GitHub Advanced Security...', self.name_with_owner)
+        log.info('%s: enabling GitHub Advanced Security...', self.name_with_owner)
 
         # Skip public repositories, which are enabled by default.
         if self._object['visibility'] == 'public':
@@ -345,7 +345,7 @@ def do_enable(args):
     for repo in args.repos:
         supported_langs = list(set(filter(None, map(normalize_lang, repo.languages))))
         if len(supported_langs) == 0:
-            logging.error('%s: no supported programming languages', repo)
+            log.error('%s: no supported programming languages', repo)
             continue
 
         workflow_contents = workflow_template.safe_substitute(
@@ -361,14 +361,14 @@ def do_enable(args):
             try:
                 branch = repo.ref().branch(branch_name)
             except GithubError as e:
-                logging.error('%s: cannot create branch "%s": %s', repo, branch_name, e)
+                log.error('%s: cannot create branch "%s": %s', repo, branch_name, e)
                 continue
 
         try:
             branch.create_file(workflow_dstpath, workflow_contents)
         except GithubError as e:
             # TODO: if not args.git_push: branch.delete()
-            logging.error('%s: file "%s" already exists', repo, workflow_dstpath)
+            log.error('%s: file "%s" already exists', repo, workflow_dstpath)
             continue
 
         if not args.git_push:
@@ -376,16 +376,16 @@ def do_enable(args):
                 branch.request_pull(args.message)
             except GithubError as e:
                 # TODO: if not args.git_push: branch.delete()
-                logging.error('%s: cannot create pull request: %s', repo, e)
+                log.error('%s: cannot create pull request: %s', repo, e)
                 continue
 
         try:
             repo.enable_advanced_security()
         except GithubError as e:
-            logging.warning('%s: cannot enable GitHub Advanced Security: %s', repo, e)
+            log.warning('%s: cannot enable GitHub Advanced Security: %s', repo, e)
             continue
 
-        logging.info('%s: done', repo)
+        log.info('%s: done', repo)
 
 def do_alerts(args):
     for repo in args.repos:
@@ -439,6 +439,8 @@ def do_analyses(args):
         sys.stdout.flush()
 
 def main():
+    logging.basicConfig(format='%(asctime)s {} %(levelname)s %(message)s'.format(os.getpid()))
+
     gh_exe = shutil.which('gh')
     if gh_exe is None:
         sys.exit('error: cannot find `gh` executable; please specify a path with `--gh`.')
@@ -470,7 +472,7 @@ def main():
 
     args = parser.parse_args()
     if args.git:
-        logging.warning('option --git is deprecated; it will be unsupported in a future release.')
+        log.warning('option --git is deprecated; it will be unsupported in a future release.')
 
     args.func(args)
 
