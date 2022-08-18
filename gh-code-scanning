@@ -41,7 +41,7 @@ class GithubError(Exception):
     def __str__(self):
         return self.command_stderr.strip()
 
-class GitHeadRef(object):
+class GitHeadRef:
     def __init__(self, name, repository):
         self.name = name
         self.repository = repository
@@ -89,7 +89,7 @@ class GitHeadRef(object):
             params={'title': title, 'head' : self.name, 'base' : self.repository.ref().name},
         )
 
-class GithubRepository(object):
+class GithubRepository:
     # This regular expression captures the relevant bits from `gh api --include`. In particular:
     #   .group(1) = HTTP Status Code ("200")
     #   .group(2) = HTTP response headers
@@ -217,7 +217,7 @@ class GithubRepository(object):
         """Returns a GitHeadRef object corresponding to the git branch of the repository, if one exists."""
         return GitHeadRef(name if name is not None else self._object['default_branch'], self)
 
-class CodeScanningAnalysis(object):
+class CodeScanningAnalysis:
     def __init__(self, repository, analysis_id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
         self.repository    = repository
@@ -267,7 +267,7 @@ class CodeScanningAnalysis(object):
         next_analysis_id = int(next_analysis['next_analysis_url'].split('/')[-1])
         return self.__class__(self.repository, next_analysis_id, self.gh_exe, deletable=True)
 
-class CodeScanningAlert(object):
+class CodeScanningAlert:
     def __init__(self, obj):
         Rule = collections.namedtuple('Rule', ['name', 'id', 'severity', 'tags'])
         Location = collections.namedtuple('Location', ['path', 'start_line', 'end_line', 'start_column', 'end_column'])
@@ -383,11 +383,8 @@ def do_alerts(args):
                   format(alert.state, '>24s'),
                   alert.rule.id,
                   f'{alert.location.path}:{alert.location.start_line}',
+                  flush=True,
             )
-
-            # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
-            # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
-            sys.stdout.flush()
 
 def do_analyses(args):
     if args.delete:
@@ -403,11 +400,7 @@ def do_analyses(args):
             if next_analysis is not None:
                 delete_queue.append(next_analysis)
 
-            print(this_analysis.id)
-
-            # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
-            # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
-            sys.stdout.flush()
+            print(this_analysis.id, flush=True)
 
     # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
     for analysis in args.repo.analyses(ref=args.ref):
@@ -419,11 +412,8 @@ def do_analyses(args):
               format(analysis.results_count, '4d'),
               'Y' if analysis.is_deletable() else 'N',
               analysis.sarif_id,
+              flush=True,
         )
-
-        # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
-        # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
-        sys.stdout.flush()
 
 def main():
     logging.basicConfig(format=f'%(asctime)s {os.getpid()} %(levelname)s %(message)s')
