@@ -53,7 +53,7 @@ class GitHeadRef(object):
         """Returns the SHA-1 commit ID of the HEAD."""
         log.info('%s: Retrieving the HEAD SHA-1 commit ID of the branch "%s"', self.repository, self.name)
         return self.repository.api(
-            'repos/%s/commits/%s' % (self.repository, 'heads/' + self.name),
+            f'repos/{self.repository}/commits/heads/{self.name}',
             headers={'Accept': 'application/vnd.github.sha'},
             raw_output=True,
         )
@@ -62,9 +62,9 @@ class GitHeadRef(object):
         """Create a new branch from the HEAD of this branch."""
         log.info('%s: Creating branch "%s"', self.repository, new_branch_name)
         self.repository.api(
-            'repos/%s/git/refs' % self.repository,
+            f'repos/{self.repository}/git/refs',
             method='POST',
-            params={'ref': 'refs/heads/%s' % new_branch_name, 'sha': self.head()},
+            params={'ref': f'refs/heads/{new_branch_name}', 'sha': self.head()},
         )
         return GitHeadRef(new_branch_name, self.repository)
 
@@ -72,10 +72,10 @@ class GitHeadRef(object):
         """Create a file in this branch of the repository."""
         log.info('%s: creating workflow file "%s"', self.repository, name)
         self.repository.api(
-            'repos/%s/contents/%s' % (self.repository, name),
+            f'repos/{self.repository}/contents/{name}',
             method='PUT',
             params={
-                'message': 'Create %s' % name,
+                'message': f'Create {name}',
                 'content': base64.b64encode(content.encode('utf-8')).decode('utf-8'),
                 'branch' : self.name,
             },
@@ -84,7 +84,7 @@ class GitHeadRef(object):
     def request_pull(self, title):
         log.info('%s: creating Pull Request', self.repository)
         self.repository.api(
-            'repos/%s/pulls' % self.repository,
+            f'repos/{self.repository}/pulls',
             method='POST',
             params={'title': title, 'head' : self.name, 'base' : self.repository.ref().name},
         )
@@ -98,7 +98,7 @@ class GithubRepository(object):
 
     def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
-        self._object = self.api('repos/%s' % nwo)
+        self._object = self.api(f'repos/{nwo}')
 
     @classmethod
     def with_kwargs(cls, **kwargs):
@@ -119,21 +119,21 @@ class GithubRepository(object):
 
     @property
     def languages(self):
-        return self.api('repos/%s/languages' % self.name_with_owner)
+        return self.api(f'repos/{self.name_with_owner}/languages')
 
     def api(self, endpoint, method='GET', headers=None, params=None, raw_output=False):
-        command = [ self.gh_exe, 'api', '--include', '--method=%s' % method ]
+        command = [ self.gh_exe, 'api', '--include', f'--method={method}' ]
 
         if method == 'GET':
             command.append('--paginate')
 
         if headers is not None:
-            command.extend('--header={}:{}'.format(h, headers[h]) for h in headers)
+            command.extend(f'--header={h}:{headers[h]}' for h in headers)
 
         if isinstance(params, str):
             command.append('--input=-')
         elif isinstance(params, dict):
-            command.extend('--field={}={}'.format(p, params[p]) for p in params)
+            command.extend(f'--field={p}={params[p]}' for p in params)
             params = None
 
         for seconds in map(lambda x: x ** x, range(10)):
@@ -187,12 +187,12 @@ class GithubRepository(object):
         else:
             params = {'ref': ref}
 
-        analyses_json_raw = self.api('repos/%s/code-scanning/analyses' % self.name_with_owner, params=params, raw_output=True)
+        analyses_json_raw = self.api(f'repos/{self.name_with_owner}/code-scanning/analyses', params=params, raw_output=True)
         for analysis_json_obj in json_multiloads(analyses_json_raw):
             yield CodeScanningAnalysis.from_api(self, analysis_json_obj, self.gh_exe)
 
     def alerts(self):
-        alerts_json_raw = self.api('repos/%s/code-scanning/alerts' % self.name_with_owner, raw_output=True)
+        alerts_json_raw = self.api(f'repos/{self.name_with_owner}/code-scanning/alerts', raw_output=True)
         for alert_object in json_multiloads(alerts_json_raw):
             yield CodeScanningAlert(alert_object)
 
@@ -208,7 +208,7 @@ class GithubRepository(object):
             return
 
         self.api(
-            'repos/%s' % self.name_with_owner,
+            f'repos/{self.name_with_owner}',
             method='PATCH',
             params='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
         )
@@ -264,13 +264,13 @@ class CodeScanningAnalysis(object):
             cmd = subprocess.run(
                 [
                     self.gh_exe, 'api', '--method=DELETE',
-                    'repos/%s/code-scanning/analyses/%d?confirm_delete=true' % (self.repository, self.id)
+                    f'repos/{self.repository}/code-scanning/analyses/{self.id}?confirm_delete=true'
                 ],
                 capture_output=True,
                 check=True,
             )
         except subprocess.CalledProcessError:
-            sys.stderr.write('warn: %s: cannot delete analysis %d.\n' % (self.repository, self.id))
+            sys.stderr.write(f'warn: {self.repository}: cannot delete analysis {self.id}.\n')
             sys.exit(1)
 
         next_analysis = json.loads(cmd.stdout)
@@ -395,7 +395,7 @@ def do_alerts(args):
                   alert.created_at,
                   format(alert.state, '>24s'),
                   alert.rule.id,
-                  '{}:{}'.format(alert.location.path, alert.location.start_line),
+                  f'{alert.location.path}:{alert.location.start_line}',
             )
 
             # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
@@ -439,7 +439,7 @@ def do_analyses(args):
         sys.stdout.flush()
 
 def main():
-    logging.basicConfig(format='%(asctime)s {} %(levelname)s %(message)s'.format(os.getpid()))
+    logging.basicConfig(format=f'%(asctime)s {os.getpid()} %(levelname)s %(message)s')
 
     gh_exe = shutil.which('gh')
     if gh_exe is None:
