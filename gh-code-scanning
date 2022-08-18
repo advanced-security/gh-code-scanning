@@ -188,7 +188,7 @@ class GithubRepository:
             yield CodeScanningAnalysis.from_api(self, analysis_json_obj, self.gh_exe)
 
     def alerts(self):
-        alerts_json_raw = self.api(f'repos/{self.name_with_owner}/code-scanning/alerts', raw_output=True)
+        alerts_json_raw = self.api(f'repos/{self.name_with_owner}/code-scanning/alerts', params={'per_page':100}, raw_output=True)
         for alert_object in json_multiloads(alerts_json_raw):
             yield CodeScanningAlert(alert_object)
 
