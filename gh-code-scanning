@@ -11,6 +11,7 @@ import shutil
 import string
 import subprocess
 import sys
+import time
 import collections
 import logging
 
@@ -135,18 +136,33 @@ class GithubRepository(object):
             command.extend('--field={}={}'.format(p, params[p]) for p in params)
             params = None
 
-        try:
-            p = subprocess.run(command + [endpoint], input=params, text=True, capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            match = self._gh_api_regex.match(e.stdout)
-            raise GithubError(
-                command=e.cmd,
-                command_exit_code=e.returncode,
-                command_stdout=e.stdout,
-                command_stderr=e.stderr,
-                http_status=int(match.group(1)),
-                http_headers=match.group(2),
-            ) from e
+        for seconds in map(lambda x: x ** x, range(10)):
+            try:
+                p = subprocess.run(command + [endpoint], input=params, text=True, capture_output=True, check=True)
+                break
+            except subprocess.CalledProcessError as e:
+                http_status, http_headers, http_body = self._gh_api_regex.findall(e.stdout)[0]
+                http_headers = { m[0]: m[1] for m in re.findall('([\w-]+):\s?(.+?)\r?\n', http_headers) }
+
+                # We hit a rate limit!
+                if http_status == '403':
+                    # If we've hit the secondary (abuse) rate limit, wait as long as it suggests.
+                    if 'Retry-After' in http_headers:
+                        seconds = http_headers['Retry-After']
+
+                    logging.warning('GitHub rate limit reached; sleeping for %d seconds.', seconds)
+
+                    time.sleep(seconds)
+                    continue
+
+                raise GithubError(
+                    command=e.cmd,
+                    command_exit_code=e.returncode,
+                    command_stdout=e.stdout,
+                    command_stderr=e.stderr,
+                    http_status=int(http_status),
+                    http_headers=http_headers,
+                ) from e
 
         buffer = io.StringIO()
         # The output from `gh api --paginate --include` is a concatenation of individual `gh api --include`
