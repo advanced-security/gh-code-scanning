@@ -473,6 +473,8 @@ def main():
     args = parser.parse_args()
     if args.git:
         log.warning('option --git is deprecated; it will be unsupported in a future release.')
+    if args.verbose:
+        log.setLevel(logging.INFO)
 
     args.func(args)
 
