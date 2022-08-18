@@ -146,25 +146,21 @@ class GithubRepository:
                 http_status, http_headers, http_body = self._gh_api_regex.findall(e.stdout)[0]
                 http_headers = { m[0]: m[1] for m in re.findall('([\w-]+):\s?(.+?)\r?\n', http_headers) }
 
-                # We hit a rate limit!
-                if http_status == '403':
-                    # If we've hit the secondary (abuse) rate limit, wait as long as it suggests.
-                    if 'Retry-After' in http_headers:
-                        seconds = http_headers['Retry-After']
-
-                    log.warning('GitHub rate limit reached; sleeping for %d seconds.', seconds)
-
+                if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == 0:
+                    log.warning('GitHub primary rate limit reached; sleeping for %d seconds.', seconds)
                     time.sleep(seconds)
-                    continue
-
-                raise GithubError(
-                    command=e.cmd,
-                    command_exit_code=e.returncode,
-                    command_stdout=e.stdout,
-                    command_stderr=e.stderr,
-                    http_status=int(http_status),
-                    http_headers=http_headers,
-                ) from e
+                elif http_status == '403' and 'Retry-After' in http_headers:
+                    log.warning('GitHub secondary rate limit reached; sleeping for %d seconds.', http_headers['Retry-After'])
+                    time.sleep(http_headers['Retry-After'])
+                else:
+                    raise GithubError(
+                        command=e.cmd,
+                        command_exit_code=e.returncode,
+                        command_stdout=e.stdout,
+                        command_stderr=e.stderr,
+                        http_status=int(http_status),
+                        http_headers=http_headers,
+                    ) from e
 
         buffer = io.StringIO()
         # The output from `gh api --paginate --include` is a concatenation of individual `gh api --include`
