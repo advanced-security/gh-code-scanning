@@ -94,7 +94,7 @@ class GithubRepository(object):
     #   .group(1) = HTTP Status Code ("200")
     #   .group(2) = HTTP response headers
     #   .group(3) = HTTP response body
-    _gh_api_regex = re.compile('HTTP/\d\.\d (\d+) (?:\w[\w\s]+)\n(.+?)\n\n([^\n]+)\n?', re.DOTALL)
+    _gh_api_regex = re.compile('HTTP/\d\.\d (\d+) (?:\w[\w\s]+)\n(.+?)(?:\n|\r\n){2}([^\n]+)\n?', re.DOTALL)
 
     def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
