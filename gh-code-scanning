@@ -162,6 +162,8 @@ class GithubRepository:
                         http_headers=http_headers,
                     ) from e
 
+        log.debug('command=%s exit-status=%d\n%s', p.args, p.returncode, p.stdout)
+
         buffer = io.StringIO()
         # The output from `gh api --paginate --include` is a concatenation of individual `gh api --include`
         # commands. Each one will have an HTTP line, headers, and a body to parse. So, we will use regular
@@ -169,8 +171,6 @@ class GithubRepository:
         for match in self._gh_api_regex.finditer(p.stdout):
             buffer.write(match.group(3))
         buffer.seek(0)
-
-        log.debug('command=%s exit-status=%d\n%s', p.args, p.returncode, p.stdout)
 
         if raw_output:
             return buffer.read()
