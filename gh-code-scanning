@@ -122,7 +122,7 @@ class GithubRepository:
         return self.api(f'repos/{self.name_with_owner}/languages')
 
     def api(self, endpoint, method='GET', headers=None, params=None, raw_output=False):
-        command = [ self.gh_exe, 'api', '--include', f'--method={method}' ]
+        command = [ self.gh_exe, 'api', endpoint, '--include', f'--method={method}' ]
 
         if method == 'GET':
             command.append('--paginate')
@@ -138,7 +138,7 @@ class GithubRepository:
 
         for seconds in map(lambda x: x ** x, range(10)):
             try:
-                p = subprocess.run(command + [endpoint], input=params, text=True, capture_output=True, check=True)
+                p = subprocess.run(command, input=params, text=True, capture_output=True, check=True)
                 break
             except subprocess.CalledProcessError as error:
                 log.debug('command=%s exit-status=%d\n%s', error.cmd, error.returncode, error.stdout)
