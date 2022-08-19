@@ -322,7 +322,7 @@ def do_enable(args):
     workflow_srcpath = os.path.abspath(args.workflow)
     workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
 
-    with open(workflow_srcpath) as f:
+    with open(workflow_srcpath, encoding='utf-8') as f:
         workflow_template = string.Template(f.read())
 
     for repo in args.repos:
