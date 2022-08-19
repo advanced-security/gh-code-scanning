@@ -143,7 +143,7 @@ class GithubRepository:
             except subprocess.CalledProcessError as e:
                 log.debug('command=%s exit-status=%d\n%s', e.cmd, e.returncode, e.stdout)
 
-                http_status, http_headers, http_body = self._gh_api_regex.findall(e.stdout)[0]
+                http_status, http_headers, _ = self._gh_api_regex.findall(e.stdout)[0]
                 http_headers = { m[0]: m[1] for m in re.findall('([\w-]+):\s?(.+?)\r?\n', http_headers) }
 
                 if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == 0:
