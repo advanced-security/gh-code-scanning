@@ -2,18 +2,18 @@
 
 import argparse
 import base64
-import json
+import collections
 import io
+import json
+import logging
 import os
-import re
 import random
+import re
 import shutil
 import string
 import subprocess
 import sys
 import time
-import collections
-import logging
 
 log = logging.getLogger(__name__)
 
