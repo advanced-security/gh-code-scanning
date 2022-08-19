@@ -351,7 +351,7 @@ def do_enable(args):
             branch.create_file(workflow_dstpath, workflow_contents)
         except GithubError as e:
             # TODO: if not args.git_push: branch.delete()
-            log.error('%s: file "%s" already exists', repo, workflow_dstpath)
+            log.error('%s: cannot create file "%s": %s', repo, workflow_dstpath, e)
             continue
 
         if not args.git_push:
