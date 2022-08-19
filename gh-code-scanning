@@ -37,9 +37,7 @@ class GithubError(Exception):
         self.command_stderr = command_stderr
         self.http_status = http_status
         self.http_headers = http_headers
-
-    def __str__(self):
-        return self.command_stderr.strip()
+        super().__init__(command_stderr.strip())
 
 class GitHeadRef:
     def __init__(self, name, repository):
