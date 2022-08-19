@@ -138,7 +138,7 @@ class GithubRepository:
 
         for seconds in map(lambda x: x ** x, range(10)):
             try:
-                p = subprocess.run(command, input=params, text=True, capture_output=True, check=True)
+                process = subprocess.run(command, input=params, text=True, capture_output=True, check=True)
                 break
             except subprocess.CalledProcessError as error:
                 log.debug('command=%s exit-status=%d\n%s', error.cmd, error.returncode, error.stdout)
@@ -162,13 +162,13 @@ class GithubRepository:
                         http_headers=http_headers,
                     ) from error
 
-        log.debug('command=%s exit-status=%d\n%s', p.args, p.returncode, p.stdout)
+        log.debug('command=%s exit-status=%d\n%s', process.args, process.returncode, process.stdout)
 
         buffer = io.StringIO()
         # The output from `gh api --paginate --include` is a concatenation of individual `gh api --include`
         # commands. Each one will have an HTTP line, headers, and a body to parse. So, we will use regular
         # expressions to find each response in the output and handle them individually.
-        for match in self._gh_api_regex.finditer(p.stdout):
+        for match in self._gh_api_regex.finditer(process.stdout):
             buffer.write(match.group(3))
         buffer.seek(0)
 
@@ -322,8 +322,8 @@ def do_enable(args):
     workflow_srcpath = os.path.abspath(args.workflow)
     workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
 
-    with open(workflow_srcpath, encoding='utf-8') as f:
-        workflow_template = string.Template(f.read())
+    with open(workflow_srcpath, encoding='utf-8') as workflow_file:
+        workflow_template = string.Template(workflow_file.read())
 
     for repo in args.repos:
         supported_langs = list(set(filter(None, map(normalize_lang, repo.languages))))
