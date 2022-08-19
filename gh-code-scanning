@@ -340,7 +340,6 @@ def do_enable(args):
         if args.git_push:
             branch = repo.ref()
         else:
-            branch = None
             try:
                 branch = repo.ref().branch(branch_name)
             except GithubError as error:
