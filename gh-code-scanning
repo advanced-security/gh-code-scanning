@@ -94,7 +94,7 @@ class GithubRepository:
     #   .group(1) = HTTP Status Code ("200")
     #   .group(2) = HTTP response headers
     #   .group(3) = HTTP response body
-    _gh_api_regex = re.compile('HTTP/\d\.\d (\d+) (?:\w[\w\s]+)\n(.+?)(?:\n|\r\n){2}([^\n]+)\n?', re.DOTALL)
+    _gh_api_regex = re.compile(r'HTTP/\d\.\d (\d+) (?:\w[\w\s]+)\n(.+?)(?:\n|\r\n){2}([^\n]+)\n?', re.DOTALL)
 
     def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
@@ -144,7 +144,7 @@ class GithubRepository:
                 log.debug('command=%s exit-status=%d\n%s', error.cmd, error.returncode, error.stdout)
 
                 http_status, http_headers, _ = self._gh_api_regex.findall(error.stdout)[0]
-                http_headers = { m[0]: m[1] for m in re.findall('([\w-]+):\s?(.+?)\r?\n', http_headers) }
+                http_headers = { m[0]: m[1] for m in re.findall(r'([\w-]+):\s?(.+?)\r?\n', http_headers) }
 
                 if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == 0:
                     log.warning('GitHub primary rate limit reached; sleeping for %d seconds.', seconds)
