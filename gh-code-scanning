@@ -24,9 +24,9 @@ def json_multiloads(json_string, spool=[]):
     """
     try:
         spool += json.loads(json_string)
-    except json.decoder.JSONDecodeError as e:
-        spool += json.loads(json_string[:e.pos])
-        json_multiloads(json_string[e.pos:], spool)
+    except json.decoder.JSONDecodeError as error:
+        spool += json.loads(json_string[:error.pos])
+        json_multiloads(json_string[error.pos:], spool)
     return spool
 
 class GithubError(Exception):
@@ -140,10 +140,10 @@ class GithubRepository:
             try:
                 p = subprocess.run(command + [endpoint], input=params, text=True, capture_output=True, check=True)
                 break
-            except subprocess.CalledProcessError as e:
-                log.debug('command=%s exit-status=%d\n%s', e.cmd, e.returncode, e.stdout)
+            except subprocess.CalledProcessError as error:
+                log.debug('command=%s exit-status=%d\n%s', error.cmd, error.returncode, error.stdout)
 
-                http_status, http_headers, _ = self._gh_api_regex.findall(e.stdout)[0]
+                http_status, http_headers, _ = self._gh_api_regex.findall(error.stdout)[0]
                 http_headers = { m[0]: m[1] for m in re.findall('([\w-]+):\s?(.+?)\r?\n', http_headers) }
 
                 if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == 0:
@@ -154,13 +154,13 @@ class GithubRepository:
                     time.sleep(http_headers['Retry-After'])
                 else:
                     raise GithubError(
-                        command=e.cmd,
-                        command_exit_code=e.returncode,
-                        command_stdout=e.stdout,
-                        command_stderr=e.stderr,
+                        command=error.cmd,
+                        command_exit_code=error.returncode,
+                        command_stdout=error.stdout,
+                        command_stderr=error.stderr,
                         http_status=int(http_status),
                         http_headers=http_headers,
-                    ) from e
+                    ) from error
 
         log.debug('command=%s exit-status=%d\n%s', p.args, p.returncode, p.stdout)
 
@@ -343,29 +343,29 @@ def do_enable(args):
             branch = None
             try:
                 branch = repo.ref().branch(branch_name)
-            except GithubError as e:
-                log.error('%s: cannot create branch "%s": %s', repo, branch_name, e)
+            except GithubError as error:
+                log.error('%s: cannot create branch "%s": %s', repo, branch_name, error)
                 continue
 
         try:
             branch.create_file(workflow_dstpath, workflow_contents)
-        except GithubError as e:
+        except GithubError as error:
             # TODO: if not args.git_push: branch.delete()
-            log.error('%s: cannot create file "%s": %s', repo, workflow_dstpath, e)
+            log.error('%s: cannot create file "%s": %s', repo, workflow_dstpath, error)
             continue
 
         if not args.git_push:
             try:
                 branch.request_pull(args.message)
-            except GithubError as e:
+            except GithubError as error:
                 # TODO: if not args.git_push: branch.delete()
-                log.error('%s: cannot create pull request: %s', repo, e)
+                log.error('%s: cannot create pull request: %s', repo, error)
                 continue
 
         try:
             repo.enable_advanced_security()
-        except GithubError as e:
-            log.warning('%s: cannot enable GitHub Advanced Security: %s', repo, e)
+        except GithubError as error:
+            log.warning('%s: cannot enable GitHub Advanced Security: %s', repo, error)
             continue
 
         log.info('%s: done', repo)
