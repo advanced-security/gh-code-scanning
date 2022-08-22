@@ -4,7 +4,7 @@ A GitHub CLI extension for GitHub Code-Scanning!
 
 ### Dependencies
 
-- Python (version 3.5 or higher)
+- Python (version 3.6 or higher)
 
 ### Installation
 
@@ -43,13 +43,14 @@ gh code-scanning enable owner/repo
 However, with the use of `xargs`, we can automate this process for every repository in an organization. For example, the following command will enable all repositories in the organization _foo_:
 
 ```shell
-gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' | xargs gh code-scanning enable
+gh repo list foo --json nameWithOwner --jq '.[].nameWithOwner' --limit 1000 | xargs gh code-scanning enable
 ```
 
 We can take this one step further even, by applying some `jq` magic to limit our "deployments" to only some repositories. For example, if you only wanted to enable GitHub Code Scanning with CodeQL on all repositories in the organization _foo_ that have CodeQL "interpreted" languages (`javascript`, `python`, `go`, `ruby`) and none of the CodeQL "compiled" languages (`java`, `csharp`, `cpp`), run the following command:
 
 ```shell
 gh repo list foo \
+  --limit 1000 \
   --json nameWithOwner,languages \
   --jq '
   .[] | (.languages) = [.languages[].node.name] |
@@ -66,16 +67,16 @@ When using a custom workflow file, some parts of the file are required to look a
 ```yml
 on:
   push:
-    branches: $DEFAULT_BRANCH_EXPR
+    branches: $GH_CS_DEFAULT_BRANCH_EXPR
   pull_request:
-    branches: $DEFAULT_BRANCH_EXPR
+    branches: $GH_CS_DEFAULT_BRANCH_EXPR
   schedule:
-    - cron: $SCHEDULE_CRON_EXPR
+    - cron: $GH_CS_SCHEDULE_CRON_EXPR
 # ...
     strategy:
       fail-fast: false
       matrix:
-        language: $MATRIX_LANGUAGE_EXPR
+        language: $GH_CS_MATRIX_LANGUAGE_EXPR
 ```
 
 #### Alerts

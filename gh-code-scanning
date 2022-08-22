@@ -2,15 +2,20 @@
 
 import argparse
 import base64
+import collections
+import io
 import json
+import logging
 import os
 import random
+import re
 import shutil
 import string
 import subprocess
 import sys
-import collections
-import logging
+import time
+
+log = logging.getLogger(__name__)
 
 def json_multiloads(json_string, spool=[]):
     """
@@ -19,20 +24,79 @@ def json_multiloads(json_string, spool=[]):
     """
     try:
         spool += json.loads(json_string)
-    except json.decoder.JSONDecodeError as e:
-        spool += json.loads(json_string[:e.pos])
-        json_multiloads(json_string[e.pos:], spool)
+    except json.decoder.JSONDecodeError as error:
+        spool += json.loads(json_string[:error.pos])
+        json_multiloads(json_string[error.pos:], spool)
     return spool
 
-class GithubRepository(object):
+class GithubError(Exception):
+    def __init__(self, command, command_exit_code, command_stdout, command_stderr, http_status, http_headers):
+        self.command = command
+        self.command_exit_code = command_exit_code
+        self.command_stdout = command_stdout
+        self.command_stderr = command_stderr
+        self.http_status = http_status
+        self.http_headers = http_headers
+        super().__init__(command_stderr.strip())
+
+class GitHeadRef:
+    def __init__(self, name, repository):
+        self.name = name
+        self.repository = repository
+
+    def __str__(self):
+        return self.name
+
+    def head(self):
+        """Returns the SHA-1 commit ID of the HEAD."""
+        log.info('%s: Retrieving the HEAD SHA-1 commit ID of the branch "%s"', self.repository, self.name)
+        return self.repository.api(
+            f'repos/{self.repository}/commits/heads/{self.name}',
+            headers={'Accept': 'application/vnd.github.sha'},
+            raw_output=True,
+        )
+
+    def branch(self, new_branch_name):
+        """Create a new branch from the HEAD of this branch."""
+        log.info('%s: Creating branch "%s"', self.repository, new_branch_name)
+        self.repository.api(
+            f'repos/{self.repository}/git/refs',
+            method='POST',
+            params={'ref': f'refs/heads/{new_branch_name}', 'sha': self.head()},
+        )
+        return GitHeadRef(new_branch_name, self.repository)
+
+    def create_file(self, name, content):
+        """Create a file in this branch of the repository."""
+        log.info('%s: creating workflow file "%s"', self.repository, name)
+        self.repository.api(
+            f'repos/{self.repository}/contents/{name}',
+            method='PUT',
+            params={
+                'message': f'Create {name}',
+                'content': base64.b64encode(content.encode('utf-8')).decode('utf-8'),
+                'branch' : self.name,
+            },
+        )
+
+    def request_pull(self, title):
+        log.info('%s: creating Pull Request', self.repository)
+        self.repository.api(
+            f'repos/{self.repository}/pulls',
+            method='POST',
+            params={'title': title, 'head' : self.name, 'base' : self.repository.ref().name},
+        )
+
+class GithubRepository:
+    # This regular expression captures the relevant bits from `gh api --include`. In particular:
+    #   .group(1) = HTTP Status Code ("200")
+    #   .group(2) = HTTP response headers
+    #   .group(3) = HTTP response body
+    _gh_api_regex = re.compile(r'HTTP/\d\.\d (\d+) (?:\w[\w\s]+)\n(.+?)(?:\n|\r\n){2}([^\n]+)\n?', re.DOTALL)
+
     def __init__(self, nwo, gh_exe):
         self.gh_exe = gh_exe
-        self._default_branch = None
-        try:
-            self.owner, self.repository = nwo.split('/')
-        except ValueError:
-            sys.stderr.write('error: argument "%s" must be in the "name with owner" format (owner/repository).\n' % nwo)
-            sys.exit(1)
+        self._object = self.api(f'repos/{nwo}')
 
     @classmethod
     def with_kwargs(cls, **kwargs):
@@ -45,63 +109,109 @@ class GithubRepository(object):
         return lambda nwo: cls(nwo, **kwargs)
 
     def __str__(self):
-        return self.owner + '/' + self.repository
+        return self.name_with_owner
 
     @property
-    def default_branch(self):
-        if self._default_branch is not None:
-            return self._default_branch
-
-        try:
-            cmd = subprocess.run([self.gh_exe, 'api', 'repos/%s' % self], capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('utf-8').strip()
-            sys.stderr.write(message)
-            sys.exit(1)
-
-        # Let's memoize this, because the default branch is unlikely to change while executing.
-        self._default_branch = json.loads(cmd.stdout)['default_branch']
-        return self._default_branch
+    def name_with_owner(self):
+        return self._object['full_name']
 
     @property
     def languages(self):
-        try:
-            cmd = subprocess.run([self.gh_exe, 'api', 'repos/%s/languages' % self], capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('utf-8').strip()
-            sys.stderr.write(message)
-            sys.exit(1)
+        return self.api(f'repos/{self.name_with_owner}/languages')
 
-        return json.loads(cmd.stdout)
+    def api(self, endpoint, method='GET', headers=None, params=None, raw_output=False):
+        command = [ self.gh_exe, 'api', endpoint, '--include', f'--method={method}' ]
+
+        if method == 'GET':
+            command.append('--paginate')
+
+        if headers is not None:
+            command.extend(f'--header={h}:{headers[h]}' for h in headers)
+
+        if isinstance(params, str):
+            command.append('--input=-')
+        elif isinstance(params, dict):
+            command.extend(f'--field={p}={params[p]}' for p in params)
+            params = None
+
+        for seconds in map(lambda x: x ** x, range(10)):
+            try:
+                process = subprocess.run(command, input=params, text=True, capture_output=True, check=True)
+                break
+            except subprocess.CalledProcessError as error:
+                log.debug('command=%s exit-status=%d\n%s', error.cmd, error.returncode, error.stdout)
+
+                http_status, http_headers, _ = self._gh_api_regex.findall(error.stdout)[0]
+                http_headers = { m[0]: m[1] for m in re.findall(r'([\w-]+):\s?(.+?)\r?\n', http_headers) }
+
+                if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == 0:
+                    log.warning('GitHub primary rate limit reached; sleeping for %d seconds.', seconds)
+                    time.sleep(seconds)
+                elif http_status == '403' and 'Retry-After' in http_headers:
+                    log.warning('GitHub secondary rate limit reached; sleeping for %d seconds.', http_headers['Retry-After'])
+                    time.sleep(http_headers['Retry-After'])
+                else:
+                    raise GithubError(
+                        command=error.cmd,
+                        command_exit_code=error.returncode,
+                        command_stdout=error.stdout,
+                        command_stderr=error.stderr,
+                        http_status=int(http_status),
+                        http_headers=http_headers,
+                    ) from error
+
+        log.debug('command=%s exit-status=%d\n%s', process.args, process.returncode, process.stdout)
+
+        buffer = io.StringIO()
+        # The output from `gh api --paginate --include` is a concatenation of individual `gh api --include`
+        # commands. Each one will have an HTTP line, headers, and a body to parse. So, we will use regular
+        # expressions to find each response in the output and handle them individually.
+        for match in self._gh_api_regex.finditer(process.stdout):
+            buffer.write(match.group(3))
+        buffer.seek(0)
+
+        if raw_output:
+            return buffer.read()
+        else:
+            return json.load(buffer)
 
     def analyses(self, ref=None):
-        command = [ self.gh_exe, 'api', 'repos/%s/code-scanning/analyses' % self, '--paginate', '--method=GET' ]
+        if ref is None:
+            params = None
+        else:
+            params = {'ref': ref}
 
-        if ref is not None:
-            command.append('--raw-field=ref=%s' % ref)
-
-        try:
-            gh_process = subprocess.run(command, capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('utf-8').strip()
-            sys.stderr.write(message)
-            sys.exit(1)
-
-        for analysis_json_obj in json_multiloads(gh_process.stdout):
+        analyses_json_raw = self.api(f'repos/{self.name_with_owner}/code-scanning/analyses', params=params, raw_output=True)
+        for analysis_json_obj in json_multiloads(analyses_json_raw):
             yield CodeScanningAnalysis.from_api(self, analysis_json_obj, self.gh_exe)
 
     def alerts(self):
-        try:
-            cmd = subprocess.run([self.gh_exe, 'api', '--paginate', 'repos/%s/code-scanning/alerts' % self], capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            message = e.stderr.decode('utf-8').strip()
-            sys.stderr.write(message)
-            sys.exit(1)
-
-        for alert_object in json_multiloads(cmd.stdout):
+        alerts_json_raw = self.api(f'repos/{self.name_with_owner}/code-scanning/alerts', params={'per_page':100}, raw_output=True)
+        for alert_object in json_multiloads(alerts_json_raw):
             yield CodeScanningAlert(alert_object)
 
-class CodeScanningAnalysis(object):
+    def enable_advanced_security(self):
+        log.info('%s: enabling GitHub Advanced Security...', self.name_with_owner)
+
+        # Skip public repositories, which are enabled by default.
+        if self._object['visibility'] == 'public':
+            return
+
+        # Skip repositories that are already enabled.
+        if self._object['security_and_analysis']['advanced_security']['status'] == 'enabled':
+            return
+
+        self.api(
+            f'repos/{self.name_with_owner}',
+            method='PATCH',
+            params='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
+        )
+
+    def ref(self, name=None):
+        """Returns a GitHeadRef object corresponding to the git branch of the repository, if one exists."""
+        return GitHeadRef(name if name is not None else self._object['default_branch'], self)
+
+class CodeScanningAnalysis:
     def __init__(self, repository, analysis_id, gh_exe, ref=None, commit_sha=None, analysis_key=None, environment=None, category=None,
                  created_at=None, results_count=None, rules_count=None, sarif_id=None, deletable=False):
         self.repository    = repository
@@ -144,27 +254,14 @@ class CodeScanningAnalysis(object):
         Delete this Code Scanning analysis from the repository. This function returns a CodeScanningAnalysis
         object of the next analysis that can be deletd, if one exists.
         """
-        try:
-            cmd = subprocess.run(
-                [
-                    self.gh_exe, 'api', '--method=DELETE',
-                    'repos/%s/code-scanning/analyses/%d?confirm_delete=true' % (self.repository, self.id)
-                ],
-                capture_output=True,
-                check=True,
-            )
-        except subprocess.CalledProcessError:
-            sys.stderr.write('warn: %s: cannot delete analysis %d.\n' % (self.repository, self.id))
-            sys.exit(1)
-
-        next_analysis = json.loads(cmd.stdout)
+        next_analysis = self.repository.api(f'repos/{self.repository}/code-scanning/analyses/{self.id}?confirm_delete=true', method='DELETE')
         if next_analysis['next_analysis_url'] is None and next_analysis['confirm_delete_url'] is None:
             return None
 
         next_analysis_id = int(next_analysis['next_analysis_url'].split('/')[-1])
         return self.__class__(self.repository, next_analysis_id, self.gh_exe, deletable=True)
 
-class CodeScanningAlert(object):
+class CodeScanningAlert:
     def __init__(self, obj):
         Rule = collections.namedtuple('Rule', ['name', 'id', 'severity', 'tags'])
         Location = collections.namedtuple('Location', ['path', 'start_line', 'end_line', 'start_column', 'end_column'])
@@ -209,125 +306,66 @@ def do_enable(args):
             return 'ruby'
         return None
 
-    def generate_random_weekly_cron():
-        return '{} {} {} {} {}'.format(
-            random.randint(0, 59), # minute
-            random.randint(0, 23), # hour
-            '*',                   # day of month
-            '*',                   # month
-            random.randint(0, 6)   # day of week
-        )
+    random_weekly_cron = '{} {} {} {} {}'.format(
+        random.randint(0, 59), # minute
+        random.randint(0, 23), # hour
+        '*',                   # day of month
+        '*',                   # month
+        random.randint(0, 6)   # day of week
+    )
 
-    output = None if args.verbose else subprocess.DEVNULL
     branch_name = 'gh-code-scanning/codeql-analysis'
     workflow_name = os.path.basename(args.workflow)
     workflow_dstdir = '.github/workflows'
     workflow_srcpath = os.path.abspath(args.workflow)
     workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
 
-    with open(workflow_srcpath) as f:
-        workflow_template = string.Template(f.read())
+    with open(workflow_srcpath, encoding='utf-8') as workflow_file:
+        workflow_template = string.Template(workflow_file.read())
 
     for repo in args.repos:
-        supported_langs = list(filter(None, map(normalize_lang, repo.languages)))
+        supported_langs = list(set(filter(None, map(normalize_lang, repo.languages))))
         if len(supported_langs) == 0:
-            logging.error('%s: no supported programming languages', repo)
+            log.error('%s: no supported programming languages', repo)
             continue
 
         workflow_contents = workflow_template.safe_substitute(
-            DEFAULT_BRANCH_EXPR=repr(repo.default_branch),
-            SCHEDULE_CRON_EXPR=repr(generate_random_weekly_cron()),
-            MATRIX_LANGUAGE_EXPR=repr(supported_langs)
+            GH_CS_DEFAULT_BRANCH_EXPR=repo.ref().name,
+            GH_CS_SCHEDULE_CRON_EXPR=repr(random_weekly_cron),
+            GH_CS_MATRIX_LANGUAGE_EXPR=repr(supported_langs)
         )
 
-        create_file_payload = {
-            'message': 'Create %s' % workflow_name,
-            'content': base64.b64encode(workflow_contents.encode('utf-8')).decode('utf-8'),
-            'branch' : repo.default_branch if args.git_push else branch_name
-        }
+        if args.git_push:
+            branch = repo.ref()
+        else:
+            try:
+                branch = repo.ref().branch(branch_name)
+            except GithubError as error:
+                log.error('%s: cannot create branch "%s": %s', repo, branch_name, error)
+                continue
+
+        try:
+            branch.create_file(workflow_dstpath, workflow_contents)
+        except GithubError as error:
+            # TODO: if not args.git_push: branch.delete()
+            log.error('%s: cannot create file "%s": %s', repo, workflow_dstpath, error)
+            continue
 
         if not args.git_push:
-            p = subprocess.run(
-                [
-                    args.gh,
-                    'api',
-                    '/repos/%s/commits/%s' % (repo, 'heads/' + repo.default_branch),
-                    '--header=Accept: application/vnd.github.sha',
-                ],
-                stdout=subprocess.PIPE,
-                stderr=output,
-            )
-            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
+            try:
+                branch.request_pull(args.message)
+            except GithubError as error:
+                # TODO: if not args.git_push: branch.delete()
+                log.error('%s: cannot create pull request: %s', repo, error)
+                continue
 
-            branch_sha1 = p.stdout.strip().decode('utf-8')
-            logging.debug('%s: branch=%s SHA-1=%s', repo, repo.default_branch, branch_sha1)
+        try:
+            repo.enable_advanced_security()
+        except GithubError as error:
+            log.warning('%s: cannot enable GitHub Advanced Security: %s', repo, error)
+            continue
 
-            logging.info('%s: creating branch "%s"', repo, branch_name)
-            p = subprocess.run(
-                [
-                    args.gh,
-                    'api',
-                    '/repos/%s/git/refs' % repo,
-                    '--method=POST',
-                    '--raw-field=ref=refs/heads/%s' % branch_name,
-                    '--raw-field=sha=%s' % branch_sha1,
-                ],
-                stdout=output,
-                stderr=output,
-            )
-            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
-
-        logging.info('%s: creating workflow file "%s"', repo, workflow_dstpath)
-        p = subprocess.run(
-            [
-                args.gh,
-                'api',
-                '/repos/%s/contents/%s' % (repo, workflow_dstpath),
-                '--method=PUT',
-                '--input=-',
-            ],
-            input=json.dumps(create_file_payload),
-            text=True,
-            stdout=output,
-            stderr=output,
-        )
-        logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
-
-        if not args.git_push:
-            logging.info('%s: creating Pull Request', repo)
-            p = subprocess.run(
-                [
-                    args.gh,
-                    'api',
-                    '/repos/%s/pulls' % repo,
-                    '--method=POST',
-                    '--raw-field=title=Create %s workflow file' % workflow_name,
-                    '--raw-field=head=%s' % branch_name,
-                    '--raw-field=base=%s' % repo.default_branch,
-                ],
-                stdout=output,
-                stderr=output,
-            )
-            logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
-
-        # Enable GitHub Advanced Security on the repository.
-        logging.info('%s: enabling GitHub Advanced Security', repo)
-        p = subprocess.run(
-            [
-                args.gh,
-                'api',
-                '/repos/%s' % repo,
-                '--method=PATCH',
-                '--input=-',
-            ],
-            input='{"security_and_analysis":{"advanced_security":{"status":"enabled"}}}',
-            text=True,
-            stdout=output,
-            stderr=output,
-        )
-        logging.debug('%s: command=%s exit-status=%d', repo, p.args, p.returncode)
-
-        logging.info('%s: done', repo)
+        log.info('%s: done', repo)
 
 def do_alerts(args):
     for repo in args.repos:
@@ -337,12 +375,9 @@ def do_alerts(args):
                   alert.created_at,
                   format(alert.state, '>24s'),
                   alert.rule.id,
-                  '{}:{}'.format(alert.location.path, alert.location.start_line),
+                  f'{alert.location.path}:{alert.location.start_line}',
+                  flush=True,
             )
-
-            # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
-            # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
-            sys.stdout.flush()
 
 def do_analyses(args):
     if args.delete:
@@ -358,11 +393,7 @@ def do_analyses(args):
             if next_analysis is not None:
                 delete_queue.append(next_analysis)
 
-            print(this_analysis.id)
-
-            # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
-            # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
-            sys.stdout.flush()
+            print(this_analysis.id, flush=True)
 
     # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
     for analysis in args.repo.analyses(ref=args.ref):
@@ -374,13 +405,12 @@ def do_analyses(args):
               format(analysis.results_count, '4d'),
               'Y' if analysis.is_deletable() else 'N',
               analysis.sarif_id,
+              flush=True,
         )
 
-        # Disable STDOUT buffering for "faster" printing. Calling `flush()` may not be
-        # as elegant as `flush=True`, but it's backwards-compatible with Python 2.7.
-        sys.stdout.flush()
-
 def main():
+    logging.basicConfig(format=f'%(asctime)s {os.getpid()} %(levelname)s %(message)s')
+
     gh_exe = shutil.which('gh')
     if gh_exe is None:
         sys.exit('error: cannot find `gh` executable; please specify a path with `--gh`.')
@@ -388,7 +418,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--gh', metavar='path', default=gh_exe, help='path to the gh executable.')
     parser.add_argument('--git', metavar='path', help='path to the git executable. [DEPRECATED]')
-    parser.add_argument('-v', '--verbose', action='store_true', help='print diagnostic information.')
+    parser.add_argument('-v', '--verbose', action='count', default=0, help='print diagnostic information.')
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
 
@@ -412,12 +442,11 @@ def main():
 
     args = parser.parse_args()
     if args.git:
-        logging.warning('option --git is deprecated; it will be unsupported in a future release.')
-
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)s\t%(message)s',
-        level=logging.DEBUG if args.verbose else logging.WARNING,
-    )
+        log.warning('option --git is deprecated; it will be unsupported in a future release.')
+    if args.verbose == 1:
+        log.setLevel(logging.INFO)
+    elif args.verbose > 1:
+        log.setLevel(logging.DEBUG)
 
     args.func(args)
 
