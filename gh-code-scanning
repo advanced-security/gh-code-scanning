@@ -144,12 +144,36 @@ class GithubRepository:
                 http_status, http_headers, _ = self._gh_api_regex.findall(error.stdout)[0]
                 http_headers = { m[0]: m[1] for m in re.findall(r'([\w-]+):\s?(.+?)\r?\n', http_headers) }
 
+                # TODO: Use a case-insensitive dictionary/data structure.
+                # HTTP headers are case-insensitive. However, the way we specify them (as keys in
+                # a dictionary) is definitely case-sensitive. It creates the possibility for error.
+
+                # Check for primary rate limits. GitHub indicates a primary rate limit through the use of
+                # a 403 status and a set of particular headers.
+                # https://docs.github.com/en/rest/overview/resources-in-the-rest-api#checking-your-rate-limit-status
                 if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == 0:
                     log.warning('GitHub primary rate limit reached; sleeping for %d seconds.', seconds)
                     time.sleep(seconds)
+                
+                # GitHub may sometimes apply a secondary rate limit (to prevent abuse). Sometimes, it will tell
+                # us how to long to wait:
+                #   >When you have been limited, use the Retry-After response header to slow down. The value of the
+                #   >Retry-After header will always be an integer, representing the number of seconds you should wait
+                #   >before making requests again.
+                # https://docs.github.com/en/rest/guides/best-practices-for-integrators#dealing-with-secondary-rate-limits
                 elif http_status == '403' and 'Retry-After' in http_headers:
                     log.warning('GitHub secondary rate limit reached; sleeping for %d seconds.', http_headers['Retry-After'])
                     time.sleep(http_headers['Retry-After'])
+                
+                # GitHub may apply the secondary rate limit with little indication,
+                # other than a 403 status and an error message:
+                #   >Requests that create content which triggers notifications, such as issues, comments and pull requests,
+                #   >may be further limited and will not include a Retry-After header in the response.
+                # https://docs.github.com/en/rest/guides/best-practices-for-integrators#dealing-with-secondary-rate-limits
+                elif http_status == '403' and 'secondary rate limit' in error.stderr:
+                    log.warning('GitHub secondary rate limit reached; sleeping for %d seconds.', seconds)
+                    time.sleep(seconds)
+
                 else:
                     raise GithubError(
                         command=error.cmd,
