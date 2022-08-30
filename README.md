@@ -30,6 +30,7 @@ optional arguments:
   --git-push            do not create PR; push commit to HEAD of default branch.
   -m MESSAGE, --message MESSAGE
                         specify the pull-request/commit message.
+  -b BODY, --body BODY  specify the pull-request body.
   -w WORKFLOW, --workflow WORKFLOW_FILE_PATH
                         specify a custom CodeQL workflow file
 ```

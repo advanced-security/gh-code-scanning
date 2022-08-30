@@ -79,13 +79,12 @@ class GitHeadRef:
             },
         )
 
-    def request_pull(self, title):
+    def request_pull(self, title, body):
         log.info('%s: creating Pull Request', self.repository)
-        self.repository.api(
-            f'repos/{self.repository}/pulls',
-            method='POST',
-            params={'title': title, 'head' : self.name, 'base' : self.repository.ref().name},
-        )
+        params = {'title': title, 'head' : self.name, 'base' : self.repository.ref().name}
+        if body is not None:
+            params['body'] = body
+        self.repository.api(f'repos/{self.repository}/pulls', method='POST', params=params)
 
 class GithubRepository:
     # This regular expression captures the relevant bits from `gh api --include`. In particular:
@@ -344,6 +343,10 @@ def do_enable(args):
     workflow_srcpath = os.path.abspath(args.workflow)
     workflow_dstpath = os.path.join(workflow_dstdir, workflow_name)
 
+    if args.git_push and args.body is not None:
+        log.error('option -b, --body is incompatible with option --git-push, because option -b, --body implies the creation of a pull request.')
+        sys.exit(1)
+
     with open(workflow_srcpath, encoding='utf-8') as workflow_file:
         workflow_template = string.Template(workflow_file.read())
 
@@ -377,7 +380,7 @@ def do_enable(args):
 
         if not args.git_push:
             try:
-                branch.request_pull(args.message)
+                branch.request_pull(args.message, args.body)
             except GithubError as error:
                 # TODO: if not args.git_push: branch.delete()
                 log.error('%s: cannot create pull request: %s', repo, error)
@@ -450,6 +453,7 @@ def main():
     parser_enable.add_argument('-f', '--force', action='store_true', help='overwrite existing workflow file.')
     parser_enable.add_argument('--git-push', action='store_true', help='do not create PR; push commit to HEAD of default branch.')
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
+    parser_enable.add_argument('-b', '--body', help='specify the pull-request body.')
     parser_enable.add_argument('-w', '--workflow', default=os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml'), metavar='WORKFLOW_FILE_PATH', help='specify a custom CodeQL workflow file')
     parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_enable.set_defaults(func=do_enable)
