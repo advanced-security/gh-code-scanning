@@ -143,3 +143,7 @@ gh code-scanning analyses --ref develop owner/repo
 # delete analyses of the 'develop' ref
 gh code-scanning analyses --delete --ref develop owner/repo
 ```
+
+### Problems?
+
+Check out the [wiki](https://github.com/mario-campos/gh-code-scanning/wiki) for troubleshooting tips!
