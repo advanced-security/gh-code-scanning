@@ -150,9 +150,9 @@ class GithubRepository:
                 # Check for primary rate limits. GitHub indicates a primary rate limit through the use of
                 # a 403 status and a set of particular headers.
                 # https://docs.github.com/en/rest/overview/resources-in-the-rest-api#checking-your-rate-limit-status
-                if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == 0:
-                    log.warning('GitHub primary rate limit reached; sleeping for %d seconds.', seconds)
-                    time.sleep(seconds)
+                if http_status == '403' and http_headers['X-Ratelimit-Remaining'] == '0':
+                    log.warning('GitHub primary rate limit reached; sleeping for %s seconds.', seconds)
+                    time.sleep(int(seconds))
                 
                 # GitHub may sometimes apply a secondary rate limit (to prevent abuse). Sometimes, it will tell
                 # us how to long to wait:
@@ -161,8 +161,8 @@ class GithubRepository:
                 #   >before making requests again.
                 # https://docs.github.com/en/rest/guides/best-practices-for-integrators#dealing-with-secondary-rate-limits
                 elif http_status == '403' and 'Retry-After' in http_headers:
-                    log.warning('GitHub secondary rate limit reached; sleeping for %d seconds.', http_headers['Retry-After'])
-                    time.sleep(http_headers['Retry-After'])
+                    log.warning('GitHub secondary rate limit reached; sleeping for %s seconds.', http_headers['Retry-After'])
+                    time.sleep(int(http_headers['Retry-After']))
                 
                 # GitHub may apply the secondary rate limit with little indication,
                 # other than a 403 status and an error message:
