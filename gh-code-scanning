@@ -315,7 +315,7 @@ def do_enable(args):
         """
         if lang in {'C', 'C++'}:
             return 'cpp'
-        if lang == 'Java':
+        if lang in {'Java', 'Kotlin'}:
             return 'java'
         if lang == 'C#':
             return 'csharp'
