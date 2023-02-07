@@ -337,7 +337,6 @@ def do_enable(args):
         random.randint(0, 6)   # day of week
     )
 
-    branch_name = 'gh-code-scanning/codeql-analysis'
     workflow_name = os.path.basename(args.workflow)
     workflow_dstdir = '.github/workflows'
     workflow_srcpath = os.path.abspath(args.workflow)
@@ -366,7 +365,7 @@ def do_enable(args):
             branch = repo.ref()
         else:
             try:
-                branch = repo.ref().branch(branch_name)
+                branch = repo.ref().branch(args.ref)
             except GithubError as error:
                 log.error('%s: cannot create branch "%s": %s', repo, branch_name, error)
                 continue
@@ -455,6 +454,7 @@ def main():
     parser_enable.add_argument('-m', '--message', default='Create CodeQL workflow file', help='specify the pull-request/commit message.')
     parser_enable.add_argument('-b', '--body', help='specify the pull-request body.')
     parser_enable.add_argument('-w', '--workflow', default=os.path.join(os.path.dirname(__file__), 'codeql-analysis.yml'), metavar='WORKFLOW_FILE_PATH', help='specify a custom CodeQL workflow file')
+    parser_enable.add_argument('-r', '--ref', default='gh-code-scanning/codeql-analysis', help='specify the name of the branch to be created')
     parser_enable.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_enable.set_defaults(func=do_enable)
 
