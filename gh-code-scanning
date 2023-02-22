@@ -402,7 +402,6 @@ def do_alerts(args):
                   format(alert.state, '>24s'),
                   alert.rule.severity,
                   alert.rule.id,
-                  alert.rule.description,
                   f'{alert.location.path}:{alert.location.start_line}',
                   flush=True,
             )
