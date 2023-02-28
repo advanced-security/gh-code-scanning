@@ -66,14 +66,14 @@ class GitHeadRef:
         )
         return GitHeadRef(new_branch_name, self.repository)
 
-    def create_file(self, name, content):
+    def create_file(self, name, content, message):
         """Create a file in this branch of the repository."""
         log.info('%s: creating workflow file "%s"', self.repository, name)
         self.repository.api(
             f'repos/{self.repository}/contents/{name}',
             method='PUT',
             params={
-                'message': f'Create {name}',
+                'message': f'{message}',
                 'content': base64.b64encode(content.encode('utf-8')).decode('utf-8'),
                 'branch' : self.name,
             },
@@ -372,7 +372,7 @@ def do_enable(args):
                 continue
 
         try:
-            branch.create_file(workflow_dstpath, workflow_contents)
+            branch.create_file(workflow_dstpath, workflow_contents, args.message)
         except GithubError as error:
             # TODO: if not args.git_push: branch.delete()
             log.error('%s: cannot create file "%s": %s', repo, workflow_dstpath, error)
