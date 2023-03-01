@@ -400,6 +400,7 @@ def do_alerts(args):
                   format(alert.number, '>4d'),
                   alert.created_at,
                   format(alert.state, '>24s'),
+                  alert.rule.severity,
                   alert.rule.id,
                   f'{alert.location.path}:{alert.location.start_line}',
                   flush=True,
