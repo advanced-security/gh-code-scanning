@@ -394,14 +394,24 @@ def do_enable(args):
         log.info('%s: done', repo)
 
 def do_alerts(args):
+    # Calculate the maximum width of all columns, so that the rows can all be aligned.
+    max_widths = {}
     for repo in args.repos:
         for alert in repo.alerts():
-            print(repo,
-                  format(alert.number, '>4d'),
+            max_widths['repo'] = max(max_widths.get('repo', 0), len(str(repo)))
+            max_widths['number'] = max(max_widths.get('number', 0), len(str(alert.number)))
+            max_widths['state'] = max(max_widths.get('state', 0), len(alert.state))
+            max_widths['severity'] = max(max_widths.get('severity', 0), len(alert.rule.severity))
+            max_widths['rule_id'] = max(max_widths.get('rule_id', 0), len(alert.rule.id))
+
+    for repo in args.repos:
+        for alert in repo.alerts():
+            print(format(str(repo), f'<{max_widths["repo"]}s'),
+                  format(alert.number, f'>{max_widths["number"]}d'),
                   alert.created_at,
-                  format(alert.state, '>24s'),
-                  alert.rule.severity,
-                  alert.rule.id,
+                  format(alert.state, f'>{max_widths["state"]}s'),
+                  format(alert.rule.severity, f'>{max_widths["severity"]}s'),
+                  format(alert.rule.id, f'<{max_widths["rule_id"]}s'),
                   f'{alert.location.path}:{alert.location.start_line}',
                   flush=True,
             )
