@@ -394,8 +394,17 @@ def do_enable(args):
         log.info('%s: done', repo)
 
 def do_alerts(args):
-    # Calculate the maximum width of all columns, so that the rows can all be aligned.
     max_widths = {}
+
+    # If the user requested a header, then make sure that the column is wide enough
+    # to fit the header.
+    if args.header:
+        max_widths['repo'] = len('REPOSITORY')
+        max_widths['number'] = len('NUMBER')
+        max_widths['severity'] = len('SEVERITY')
+        max_widths['rule_id'] = len('RULE_ID')
+
+    # Calculate the maximum width of all columns, so that the rows can all be aligned.
     for repo in args.repos:
         for alert in repo.alerts():
             max_widths['repo'] = max(max_widths.get('repo', 0), len(str(repo)))
@@ -404,13 +413,23 @@ def do_alerts(args):
             max_widths['severity'] = max(max_widths.get('severity', 0), len(alert.rule.severity))
             max_widths['rule_id'] = max(max_widths.get('rule_id', 0), len(alert.rule.id))
 
+    if args.header:
+        print(format('REPOSITORY', f'<{max_widths["repo"]}s'),
+              format('NUMBER', f'>{max_widths["number"]}s'),
+              format('CREATED_AT', '<20s'),
+              format('STATE', f'<{max_widths["state"]}s'),
+              format('SEVERITY', f'<{max_widths["severity"]}s'),
+              format('RULE_ID', f'<{max_widths["rule_id"]}s'),
+              'LOCATION',
+        )
+
     for repo in args.repos:
         for alert in repo.alerts():
             print(format(str(repo), f'<{max_widths["repo"]}s'),
                   format(alert.number, f'>{max_widths["number"]}d'),
                   alert.created_at,
-                  format(alert.state, f'>{max_widths["state"]}s'),
-                  format(alert.rule.severity, f'>{max_widths["severity"]}s'),
+                  format(alert.state, f'<{max_widths["state"]}s'),
+                  format(alert.rule.severity, f'<{max_widths["severity"]}s'),
                   format(alert.rule.id, f'<{max_widths["rule_id"]}s'),
                   f'{alert.location.path}:{alert.location.start_line}',
                   flush=True,
@@ -470,6 +489,7 @@ def main():
     parser_enable.set_defaults(func=do_enable)
 
     parser_alerts = subparsers.add_parser('alerts', help='download code-scanning alerts.')
+    parser_alerts.add_argument('-H', '--header', action='store_true', help='print a header row.')
     parser_alerts.add_argument('repos', nargs='+', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_alerts.set_defaults(func=do_alerts)
 
