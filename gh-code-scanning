@@ -451,16 +451,50 @@ def do_analyses(args):
 
             print(this_analysis.id, flush=True)
 
-    # The "delete" flag (args.delete) was not passed, so print analyses instead of deleting them.
+    # The --delete flag (args.delete) was not passed, so print analyses instead of deleting them.
+    # However, before printing, we need to determine the maximum width of each column, so that
+    # the columns can all be aligned.
+    max_widths = {}
+
+    # If the user requested a header, then make sure that the column is wide enough
+    # to fit the header.
+    if args.header:
+        max_widths['repo'] = max(len('REPOSITORY'), len(str(args.repo)))
+        max_widths['analysis_id'] = len('ANALYSIS_ID')
+        max_widths['analysis_key'] = len('ANALYSIS_KEY')
+        max_widths['rules_count'] = len('RULES')
+        max_widths['results_count'] = len('RESULTS')
+        max_widths['deletable'] = len('DELETABLE')
+        max_widths['sarif_id'] = len('SARIF_ID')
+
+    # Loop through all of the analyses to find the maximum width of each column.
     for analysis in args.repo.analyses(ref=args.ref):
-        print(args.repo,
-              format(analysis.id, '>9d'),
+        max_widths['analysis_id'] = max(max_widths.get('analysis_id', 0), len(str(analysis.id)))
+        max_widths['analysis_key'] = max(max_widths.get('analysis_key', 0), len(analysis.analysis_key))
+        max_widths['rules_count'] = max(max_widths.get('rules_count', 0), len(str(analysis.rules_count)))
+        max_widths['results_count'] = max(max_widths.get('results_count', 0), len(str(analysis.results_count)))
+        max_widths['sarif_id'] = max(max_widths.get('sarif_id', 0), len(analysis.sarif_id))
+
+    if args.header:
+        print(format('REPOSITORY', f'<{max_widths["repo"]}s'),
+              format('ANALYIS_ID', f'>{max_widths["analysis_id"]}s'),
+              format('CREATED_AT', '<20s'),
+              format('ANALYSIS_KEY', f'<{max_widths["analysis_key"]}s'),
+              format('RULES', f'>{max_widths["rules_count"]}s'),
+              format('RESULTS', f'>{max_widths["results_count"]}s'),
+              'DELETABLE',
+              format('SARIF_ID', f'<{max_widths["sarif_id"]}s'),
+        )
+
+    for analysis in args.repo.analyses(ref=args.ref):
+        print(format(str(args.repo), f'<{max_widths.get("repo", 0)}s'),
+              format(analysis.id, f'>{max_widths["analysis_id"]}d'),
               analysis.created_at,
-              analysis.analysis_key,
-              format(analysis.rules_count, '>3d'),
-              format(analysis.results_count, '4d'),
-              'Y' if analysis.is_deletable() else 'N',
-              analysis.sarif_id,
+              format(analysis.analysis_key, f'<{max_widths["analysis_key"]}s'),
+              format(analysis.rules_count, f'>{max_widths["rules_count"]}d'),
+              format(analysis.results_count, f'>{max_widths["results_count"]}d'),
+              format('Y' if analysis.is_deletable() else 'N', f'<{max_widths.get("deletable", 0)}s'),
+              format(analysis.sarif_id, f'<{max_widths["sarif_id"]}s'),
               flush=True,
         )
 
@@ -495,6 +529,7 @@ def main():
 
     parser_analyses = subparsers.add_parser('analyses', help='list code-scanning analyses.')
     parser_analyses.add_argument('-d', '--delete', action='store_true')
+    parser_analyses.add_argument('-H', '--header', action='store_true', help='print a header row.')
     parser_analyses.add_argument('-r', '--ref')
     parser_analyses.add_argument('repo', type=GithubRepository.with_kwargs(gh_exe=gh_exe))
     parser_analyses.set_defaults(func=do_analyses)
