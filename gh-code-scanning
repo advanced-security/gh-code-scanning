@@ -423,17 +423,27 @@ def do_alerts(args):
               'LOCATION',
         )
 
-    for repo in args.repos:
-        for alert in repo.alerts():
-            print(format(str(repo), f'<{max_widths["repo"]}s'),
-                  format(alert.number, f'>{max_widths["number"]}d'),
-                  alert.created_at,
-                  format(alert.state, f'<{max_widths["state"]}s'),
-                  format(alert.rule.severity, f'<{max_widths["severity"]}s'),
-                  format(alert.rule.id, f'<{max_widths["rule_id"]}s'),
-                  f'{alert.location.path}:{alert.location.start_line}',
-                  flush=True,
-            )
+    try:
+        for repo in args.repos:
+            for alert in repo.alerts():
+                print(format(str(repo), f'<{max_widths["repo"]}s'),
+                      format(alert.number, f'>{max_widths["number"]}d'),
+                      alert.created_at,
+                      format(alert.state, f'<{max_widths["state"]}s'),
+                      format(alert.rule.severity, f'<{max_widths["severity"]}s'),
+                      format(alert.rule.id, f'<{max_widths["rule_id"]}s'),
+                      f'{alert.location.path}:{alert.location.start_line}',
+                      flush=True,
+                )
+    
+    # A BrokenPipeError is expected when the user pipes the output of this command to another
+    # command, such as head(1), and that command terminates before this command does.
+    except BrokenPipeError:
+        # Python flushes standard streams on exit; redirect remaining output
+        # to /dev/null to avoid another BrokenPipeError at shutdown
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(1)
 
 def do_analyses(args):
     if args.delete:
@@ -486,17 +496,27 @@ def do_analyses(args):
               format('SARIF_ID', f'<{max_widths["sarif_id"]}s'),
         )
 
-    for analysis in args.repo.analyses(ref=args.ref):
-        print(format(str(args.repo), f'<{max_widths.get("repo", 0)}s'),
-              format(analysis.id, f'>{max_widths["analysis_id"]}d'),
-              analysis.created_at,
-              format(analysis.analysis_key, f'<{max_widths["analysis_key"]}s'),
-              format(analysis.rules_count, f'>{max_widths["rules_count"]}d'),
-              format(analysis.results_count, f'>{max_widths["results_count"]}d'),
-              format('Y' if analysis.is_deletable() else 'N', f'<{max_widths.get("deletable", 0)}s'),
-              format(analysis.sarif_id, f'<{max_widths["sarif_id"]}s'),
-              flush=True,
-        )
+    try:
+        for analysis in args.repo.analyses(ref=args.ref):
+            print(format(str(args.repo), f'<{max_widths.get("repo", 0)}s'),
+                  format(analysis.id, f'>{max_widths["analysis_id"]}d'),
+                  analysis.created_at,
+                  format(analysis.analysis_key, f'<{max_widths["analysis_key"]}s'),
+                  format(analysis.rules_count, f'>{max_widths["rules_count"]}d'),
+                  format(analysis.results_count, f'>{max_widths["results_count"]}d'),
+                  format('Y' if analysis.is_deletable() else 'N', f'<{max_widths.get("deletable", 0)}s'),
+                  format(analysis.sarif_id, f'<{max_widths["sarif_id"]}s'),
+                  flush=True,
+            )
+    
+    # A BrokenPipeError is expected when the user pipes the output of this command to another
+    # command, such as head(1), and that command terminates before this command does.
+    except BrokenPipeError:
+        # Python flushes standard streams on exit; redirect remaining output
+        # to /dev/null to avoid another BrokenPipeError at shutdown
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(1)
 
 def main():
     logging.basicConfig(format=f'%(asctime)s {os.getpid()} %(levelname)s %(message)s')
