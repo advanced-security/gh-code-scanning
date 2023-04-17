@@ -59,11 +59,28 @@ class GitHeadRef:
     def branch(self, new_branch_name):
         """Create a new branch from the HEAD of this branch."""
         log.info('%s: Creating branch "%s"', self.repository, new_branch_name)
-        self.repository.api(
-            f'repos/{self.repository}/git/refs',
-            method='POST',
-            params={'ref': f'refs/heads/{new_branch_name}', 'sha': self.head()},
-        )
+        try:
+            self.repository.api(
+                f'repos/{self.repository}/git/refs',
+                method='POST',
+                params={'ref': f'refs/heads/{new_branch_name}', 'sha': self.head()},
+            )
+        except GithubError as error:
+            if error.http_status == 422:
+                # Try again, but delete the branch first
+                self.repository.api(
+                    f'repos/{self.repository}/git/refs/heads/{new_branch_name}',
+                    method='DELETE',
+                    params={'ref': f'refs/heads/{new_branch_name}', 'sha': self.head()},
+                )
+                self.repository.api(
+                    f'repos/{self.repository}/git/refs',
+                    method='POST',
+                    params={'ref': f'refs/heads/{new_branch_name}', 'sha': self.head()},
+                )
+
+            else:
+                raise
         return GitHeadRef(new_branch_name, self.repository)
 
     def create_file(self, name, content, message):
@@ -195,7 +212,7 @@ class GithubRepository:
 
         if raw_output:
             return buffer.read()
-        else:
+        elif method != 'DELETE':
             return json.load(buffer)
 
     def analyses(self, ref=None):
