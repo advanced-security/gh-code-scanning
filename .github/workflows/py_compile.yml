@@ -9,21 +9,24 @@ on:
     paths: gh-code-scanning
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   py_compile:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ 3.6, 3.7, 3.8, 3.9, '3.10' ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
     steps:
     - name: Setup Python
-      uses: actions/setup-python@v3.0.0
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
     - name: Check syntax against Python ${{ matrix.python-version }}
       run: python -m py_compile gh-code-scanning
